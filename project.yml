@@ -1,0 +1,54 @@
+name: Tidy
+options:
+  bundleIdPrefix: com.tidy
+  deploymentTarget:
+    macOS: "12.0"
+  developmentLanguage: zh-Hans
+  groupSortPosition: top
+
+packages:
+  Tidy:
+    path: .
+
+settings:
+  base:
+    SWIFT_VERSION: "5.7"
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "-"
+    ONLY_ACTIVE_ARCH: YES
+
+targets:
+  TidyApp:
+    type: application
+    platform: macOS
+    deploymentTarget: "12.0"
+    sources:
+      - path: TidyApp
+    info:
+      path: TidyApp/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tidy.windowmanagement
+        PRODUCT_NAME: Tidy
+        INFOPLIST_FILE: TidyApp/Info.plist
+    dependencies:
+      - package: Tidy
+        product: TidyCore
+      - package: Tidy
+        product: TidyUI
+
+  TidyAppUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    deploymentTarget: "12.0"
+    sources:
+      - path: TidyAppUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tidy.windowmanagement.uitests
+        PRODUCT_NAME: TidyAppUITests
+        PRODUCT_MODULE_NAME: TidyAppUITests
+        TEST_TARGET_NAME: TidyApp
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: TidyApp

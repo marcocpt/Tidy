@@ -8,7 +8,8 @@ let package = Package(
         .macOS(.v12),
     ],
     products: [
-        .executable(name: "TidyApp", targets: ["TidyApp"]),
+        .library(name: "TidyCore", targets: ["TidyCore"]),
+        .library(name: "TidyUI", targets: ["TidyUI"]),
     ],
     targets: [
         .target(
@@ -23,14 +24,6 @@ let package = Package(
         .target(
             name: "TidyUI",
             dependencies: ["TidyCore"]
-        ),
-        .executableTarget(
-            name: "TidyApp",
-            dependencies: ["TidyCore", "TidyUI"],
-            linkerSettings: [
-                .linkedFramework("Carbon"),
-                .linkedFramework("ApplicationServices")
-            ]
         ),
         .testTarget(
             name: "TidyCoreTests",

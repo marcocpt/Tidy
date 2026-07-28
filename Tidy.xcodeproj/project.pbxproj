@@ -1,0 +1,307 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		15B0C951636A940D595E42F8 /* TidyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0427B6E8CA6CCAD998FB9DE0 /* TidyApp.swift */; };
+		3BBF4065024B6845278B1251 /* TidyUI in Frameworks */ = {isa = PBXBuildFile; productRef = DAC70CCD5CE526E4E81234F0 /* TidyUI */; };
+		A56F483443EFCA7B1BC62F5F /* TidyAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99DE04AF3B10CA3240C3C045 /* TidyAppUITests.swift */; };
+		D5905CAF1F659423DDE56F20 /* TidyCore in Frameworks */ = {isa = PBXBuildFile; productRef = AD4D53CCCAA717700E62EC1A /* TidyCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9CAFFCC6A75F954B8E32A89D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 22152176FE3D7724E3B05885 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AF6665ACBF5CF9A4B55EE37B;
+			remoteInfo = TidyApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0427B6E8CA6CCAD998FB9DE0 /* TidyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidyApp.swift; sourceTree = "<group>"; };
+		2F73889B25E8E709D382AEED /* TidyApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TidyApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3DB2BA2430EC159C297721B9 /* TidyAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TidyAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3E47974155BA10E1B960605F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		99DE04AF3B10CA3240C3C045 /* TidyAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidyAppUITests.swift; sourceTree = "<group>"; };
+		EF13B283386AC69830088EE8 /* Tidy */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Tidy; path = .; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4BB476AA116240B23B604D5F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5905CAF1F659423DDE56F20 /* TidyCore in Frameworks */,
+				3BBF4065024B6845278B1251 /* TidyUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08C44E3419440CBFB6B8D3B0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2F73889B25E8E709D382AEED /* TidyApp.app */,
+				3DB2BA2430EC159C297721B9 /* TidyAppUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2093AF12F32997DDB280C8CC = {
+			isa = PBXGroup;
+			children = (
+				70CFBC1F9C8AD79C1E4C8320 /* Packages */,
+				6D1D83BA486BA2AB7F70CDF3 /* TidyApp */,
+				83A9D5CE97A2049CD423558E /* TidyAppUITests */,
+				08C44E3419440CBFB6B8D3B0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		6D1D83BA486BA2AB7F70CDF3 /* TidyApp */ = {
+			isa = PBXGroup;
+			children = (
+				3E47974155BA10E1B960605F /* Info.plist */,
+				0427B6E8CA6CCAD998FB9DE0 /* TidyApp.swift */,
+			);
+			path = TidyApp;
+			sourceTree = "<group>";
+		};
+		70CFBC1F9C8AD79C1E4C8320 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				EF13B283386AC69830088EE8 /* Tidy */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		83A9D5CE97A2049CD423558E /* TidyAppUITests */ = {
+			isa = PBXGroup;
+			children = (
+				99DE04AF3B10CA3240C3C045 /* TidyAppUITests.swift */,
+			);
+			path = TidyAppUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5A7158183C0D0921F5371A45 /* TidyAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 79B1456DAC9B2322F9216856 /* Build configuration list for PBXNativeTarget "TidyAppUITests" */;
+			buildPhases = (
+				90387C0C8AF881C51C346616 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DC21AFBA7B04FB2A3CA64F59 /* PBXTargetDependency */,
+			);
+			name = TidyAppUITests;
+			productName = TidyAppUITests;
+			productReference = 3DB2BA2430EC159C297721B9 /* TidyAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		AF6665ACBF5CF9A4B55EE37B /* TidyApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A50FE3D362180AEE9C20E6C8 /* Build configuration list for PBXNativeTarget "TidyApp" */;
+			buildPhases = (
+				E066BBB363B81A39445E3DCB /* Sources */,
+				4BB476AA116240B23B604D5F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TidyApp;
+			packageProductDependencies = (
+				AD4D53CCCAA717700E62EC1A /* TidyCore */,
+				DAC70CCD5CE526E4E81234F0 /* TidyUI */,
+			);
+			productName = TidyApp;
+			productReference = 2F73889B25E8E709D382AEED /* TidyApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		22152176FE3D7724E3B05885 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					5A7158183C0D0921F5371A45 = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = AF6665ACBF5CF9A4B55EE37B;
+					};
+					AF6665ACBF5CF9A4B55EE37B = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 982783BC77E005C612882A3D /* Build configuration list for PBXProject "Tidy" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = "zh-Hans";
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = 2093AF12F32997DDB280C8CC;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AF6665ACBF5CF9A4B55EE37B /* TidyApp */,
+				5A7158183C0D0921F5371A45 /* TidyAppUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		90387C0C8AF881C51C346616 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A56F483443EFCA7B1BC62F5F /* TidyAppUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E066BBB363B81A39445E3DCB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15B0C951636A940D595E42F8 /* TidyApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DC21AFBA7B04FB2A3CA64F59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AF6665ACBF5CF9A4B55EE37B /* TidyApp */;
+			targetProxy = 9CAFFCC6A75F954B8E32A89D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		045DC964D56EEEF82B3692E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tidy.windowmanagement.uitests;
+				PRODUCT_MODULE_NAME = TidyAppUITests;
+				PRODUCT_NAME = TidyAppUITests;
+				TEST_TARGET_NAME = TidyApp;
+			};
+			name = Debug;
+		};
+		1D5F17B143EB53297B8C094F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = TidyApp/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tidy.windowmanagement;
+				PRODUCT_NAME = Tidy;
+			};
+			name = Debug;
+		};
+		4929AFEA401E5D229FCE4EDC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tidy.windowmanagement.uitests;
+				PRODUCT_MODULE_NAME = TidyAppUITests;
+				PRODUCT_NAME = TidyAppUITests;
+				TEST_TARGET_NAME = TidyApp;
+			};
+			name = Release;
+		};
+		6A63DEC5A0CCE07AA7DC70F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.7;
+			};
+			name = Debug;
+		};
+		B49BCF03152E3D7ED713D503 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = TidyApp/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tidy.windowmanagement;
+				PRODUCT_NAME = Tidy;
+			};
+			name = Release;
+		};
+		CCB9288D9FA10A3C7BE4FE36 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.7;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		79B1456DAC9B2322F9216856 /* Build configuration list for PBXNativeTarget "TidyAppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				045DC964D56EEEF82B3692E5 /* Debug */,
+				4929AFEA401E5D229FCE4EDC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		982783BC77E005C612882A3D /* Build configuration list for PBXProject "Tidy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6A63DEC5A0CCE07AA7DC70F4 /* Debug */,
+				CCB9288D9FA10A3C7BE4FE36 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A50FE3D362180AEE9C20E6C8 /* Build configuration list for PBXNativeTarget "TidyApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1D5F17B143EB53297B8C094F /* Debug */,
+				B49BCF03152E3D7ED713D503 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AD4D53CCCAA717700E62EC1A /* TidyCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TidyCore;
+		};
+		DAC70CCD5CE526E4E81234F0 /* TidyUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TidyUI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 22152176FE3D7724E3B05885 /* Project object */;
+}
