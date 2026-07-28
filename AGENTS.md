@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> 最后更新：2026-07-28 | 版本：v0.4
+> 最后更新：2026-07-28 | 版本：v0.5
 > 文档状态：草案
 > 适用对象：所有在本仓库工作的 AI Agent（Codex / Cursor / Claude Code / Trae 等）
 
@@ -26,6 +26,8 @@
 
 - [docs/Tidy 窗口管理 App 功能列表.md](docs/Tidy%20窗口管理%20App%20功能列表.md)
 - [docs/Tidy 窗口管理 App 市场调研报告.md](docs/Tidy%20窗口管理%20App%20市场调研报告.md)
+
+架构不变量、分层与依赖方向见 [docs/architecture/Tidy_全局架构契约.md](docs/architecture/Tidy_全局架构契约.md)。编码写法规则见 [docs/standards/CODING_STANDARDS.md](docs/standards/CODING_STANDARDS.md)。
 
 ## 2. 核心执行纪律
 
@@ -88,6 +90,38 @@
 - 任务完成且无阻塞时直接报告结果；
 - 只有存在用户决策、阶段 Gate、风险取舍或多个合理下一步时才使用 `AskUserQuestion`；
 - 若有自然的后续工作（如 docs.md 第 4 节定义的下一阶段文档），应在选项中显式列出。
+
+### 2.7 Trae 硬约束
+
+在 Trae 宿主下工作时，以下规则强制执行：
+
+- 任务或阶段 Gate 完成后，**禁止直接结束会话**；
+- 必须使用 `AskUserQuestion` 提供选项：`结束本次任务` / `还有其他任务`；
+- 选择"还有其他任务"时继续接收用户输入；
+- 选择"结束本次任务"后方可结束会话。
+
+### 2.8 上下文加载策略
+
+**Always read**（每次任务开始前必读）：
+
+1. 本文件（`AGENTS.md`）；
+2. [docs/Tidy_开发路线图.md](docs/Tidy_开发路线图.md)（确认当前阶段和范围）；
+3. 当前阶段的需求与验收文档。
+
+**Read when relevant**（按需读取）：
+
+- [docs/architecture/Tidy_全局架构契约.md](docs/architecture/Tidy_全局架构契约.md)（涉及分层、依赖方向、不变量时）；
+- [docs/standards/CODING_STANDARDS.md](docs/standards/CODING_STANDARDS.md)（涉及编码写法时）；
+- 当前阶段的设计文档、测试用例表、实现计划；
+- 与当前判断直接相关的 artifact。
+
+**Do not preload**（不预加载）：
+
+- `docs/historys/`（历史归档）；
+- 无关阶段的文档；
+- 旧 artifact；
+- 整个 `docs/` 目录；
+- 与当前节点无关的参考文档。
 
 ## 3. 任务模板
 
@@ -221,7 +255,7 @@
 
 ## 7. 阶段感知
 
-当前处于 **P0_技术探针** 准备阶段（docs.md 已批准，阶段文档未创建）。
+当前处于 **P0_技术探针** 准备阶段（docs.md 已批准，阶段文档草案状态）。
 
 - 允许：创建 `docs/phases/P0_技术探针/` 下的阶段文档（`P0_01_阶段需求与验收.md` 等）；
 - 允许：技术探针代码（AX 兼容性、CGEventTap、NSPanel、性能验证等，详见 docs.md 第 4.4 节）；

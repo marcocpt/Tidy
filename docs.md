@@ -52,6 +52,7 @@ Tidy 按 Phase 聚合文档。目录和文件仅在实际需要时创建，不�
     │   └── Tidy_已实现行为规格.md          # 计划路径，按需创建
     ├── architecture/
     │   ├── Tidy_全局架构契约.md
+    │   ├── ADR索引.md
     │   └── adr/
     │       └── ADR-NNNN-主题.md
     ├── phases/
@@ -73,6 +74,7 @@ Tidy 按 Phase 聚合文档。目录和文件仅在实际需要时创建，不�
     │   ├── F3_自定义布局模板/
     │   ├── F4_循环切换/
     │   └── F5_跨App编排/
+    ├── planning/              # 项目级规划（路线图、功能列表、技术调研）
     ├── standards/
     │   ├── CODING_STANDARDS.md
     │   ├── git-commit-message.md
