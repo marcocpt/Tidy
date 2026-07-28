@@ -13,7 +13,12 @@ let package = Package(
     targets: [
         .target(
             name: "TidyCore",
-            dependencies: []
+            dependencies: [],
+            linkerSettings: [
+                .linkedFramework("Carbon"),
+                .linkedFramework("ApplicationServices"),
+                .unsafeFlags(["-framework", "Carbon"])
+            ]
         ),
         .target(
             name: "TidyUI",
@@ -21,7 +26,11 @@ let package = Package(
         ),
         .executableTarget(
             name: "TidyApp",
-            dependencies: ["TidyCore", "TidyUI"]
+            dependencies: ["TidyCore", "TidyUI"],
+            linkerSettings: [
+                .linkedFramework("Carbon"),
+                .linkedFramework("ApplicationServices")
+            ]
         ),
         .testTarget(
             name: "TidyCoreTests",
