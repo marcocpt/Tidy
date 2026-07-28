@@ -339,7 +339,7 @@ public final class TidyOrchestrator: TidyOrchestrating {
         os_log(
             "tidy.performance app=%{public}@ windows=%d t0=%lld t1=%lld t2=%lld latency=%lld success=%d",
             log: perfLog,
-            type: .info,
+            type: .default,
             frontmostBundleID,
             windowCount,
             t0ms,
