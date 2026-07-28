@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> 最后更新：2026-07-28 | 版本：v0.3
+> 最后更新：2026-07-28 | 版本：v0.4
 > 文档状态：草案
 > 适用对象：所有在本仓库工作的 AI Agent（Codex / Cursor / Claude Code / Trae 等）
 
@@ -42,7 +42,7 @@
 
 - 提交前命令：`swiftlint lint --strict`（在仓库根目录执行）；
 - 配置文件：`.swiftlint.yml`（位于根目录，P0 完成时建立）；
-- `warning` 级违规应在同一提交内修复；确实无法修复时必须在 commit message 中显式说明豁免理由；
+- `warning` 级违规应在同一提交内修复；确实无法修复时必须写入配置级 `disable` / `excluded` / `baseline` 并附理由，commit message 不得作为 lint 豁免机制，CI 仍需 PASS；
 - CI 流水线必须将 SwiftLint 设为强制门禁；
 - 第三方依赖与生成代码允许通过 `excluded` 排除；
 - 未配置 `.swiftlint.yml` 前，提交前至少运行 `swiftlint` 默认规则并人工复核输出。
@@ -85,10 +85,9 @@
 
 ### 2.6 会话收尾规范
 
-- **禁止直接结束会话**；
-- 完成用户指派的任务后，必须使用 `AskUserQuestion` 询问用户：
-  - 选项应包含"结束会话"与"继续其他任务"两类；
-  - 若有自然的后续工作（如 docs.md 第 4 节定义的下一阶段文档），应在选项中显式列出。
+- 任务完成且无阻塞时直接报告结果；
+- 只有存在用户决策、阶段 Gate、风险取舍或多个合理下一步时才使用 `AskUserQuestion`；
+- 若有自然的后续工作（如 docs.md 第 4 节定义的下一阶段文档），应在选项中显式列出。
 
 ## 3. 任务模板
 
@@ -164,6 +163,8 @@
 
 ### 4.4 工具使用
 
+以下工具名为 Trae / Claude Code 等 Agent 的典型能力名称；其他 Agent 应使用对应等价能力：
+
 - 读取文件用 `Read`，不用 `cat` / `head` / `tail`；
 - 编辑文件用 `Edit`，不用 `sed` / `awk`；
 - 创建文件用 `Write`，不用 `echo` / heredoc；
@@ -193,7 +194,7 @@
 - 使用 `os_log`，子系统 `com.tidy.windowmanagement`；
 - 关键节点 Info 级日志；
 - AX 失败、状态机非法转换 Error 级日志；
-- 不使用 `print` 或 `NSLog`。
+- 生产代码禁止 `print` 或 `NSLog`；阶段需求明确允许的 Spike / Probe / Test 代码可以临时使用，进入生产模块前必须移除；
 
 ## 6. 项目结构
 
@@ -232,25 +233,3 @@
 
 阶段间依赖与推进规则见 [docs.md 第 4 节](docs.md#4-阶段推进顺序)。
 
-## 8. 版本记录
-
-- **v0.3（2026-07-28）**
-  - 同步 docs.md v0.5：恢复 `P0_技术探针` 作为准备阶段，"当前阶段"从 `F0_权限引导` 改回 `P0_技术探针`；
-  - 项目结构目录树新增 `P0_技术探针/`（当前准备阶段）与 `F0_权限引导/`（下一功能阶段）；`.swiftlint.yml` 与 `Package.swift` 建立时机改回 P0 完成时；
-  - 第 7 节"阶段感知"重写：P0 允许技术探针代码、SPM 骨架与首批 ADR 探索；技术验证集中在 P0，不再分散到 F0/F1；
-  - 2.2 节 SwiftLint 配置建立时机改回 P0；2.3 节 `<scope>` 同时支持 `phase-P{n}` 与 `phase-F{n}`；
-  - 修正对 docs.md 第 4 节的链接锚点为 `#4-阶段推进顺序`。
-- **v0.2（2026-07-28）**
-  - 同步 docs.md v0.4 的功能阶段重划分：将"当前阶段"从 `P0_技术探针` 改为 `F0_权限引导`；
-  - 项目结构目录树中的 `phases/` 当前阶段目录改为 `F0_权限引导/`，`.swiftlint.yml` 与 `Package.swift` 的建立时机改为 F0 完成时；
-  - 第 7 节"阶段感知"重写：F0 允许权限检测代码，技术风险验证（AX 兼容性、CGEventTap、NSPanel 等）分散到对应功能中；
-  - 2.2 节 SwiftLint 配置建立时机改为 F0 完成时；
-  - 2.3 节 Conventional Commits 的 `<scope>` 由 `phase-P{n}` 改为 `phase-F{n}`；
-  - 修正对 docs.md 第 4 节的链接锚点为 `#4-功能推进顺序`。
-- **v0.1（2026-07-28）**
-  - 建立 AI Agent 执行纪律入口；
-  - 定义核心执行纪律：上游优先、SwiftLint 硬约束、Git 提交规范、会话交互规范、浏览器展示规范、会话收尾规范；
-  - 提供编码 / 文档 / 调试三类任务模板；
-  - 定义输出格式：文本、代码块、任务管理、工具使用；
-  - 列出工具链：SPM 构建、XCTest 测试、SwiftLint lint、os_log 日志；
-  - 与 docs.md 互补，不重复文档治理与目录规范内容。

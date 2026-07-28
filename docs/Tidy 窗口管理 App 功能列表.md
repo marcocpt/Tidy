@@ -1,6 +1,6 @@
 # Tidy 窗口管理 App 功能列表
 
-> 最后更新：2026-07-28 | 版本：v1.1
+> 最后更新：2026-07-28 | 版本：v1.2
 
 [TOC]
 
@@ -74,7 +74,7 @@ F0 权限引导之后，建立状态栏交互和全局快捷键，让每个开�
 | 未授权 | ⚠️ 警告 | 权限引导窗口可见时 |
 | 空闲 | 普通 | 正常工作状态 |
 | 编排中 | 🔵 蓝点 | arranging / selecting 阶段 |
-| 锁定工作 | 🔒 锁标识 | working 阶段（用户在目标 App 上工作） |
+| 锁定工作 | 🔒 锁标识 | working 阶段（用户在目标 App 上工作）；v1.0 候选，v0.1 仅实现前 3 种 |
 
 **状态栏菜单**：
 
@@ -108,13 +108,13 @@ F0 权限引导之后，建立状态栏交互和全局快捷键，让每个开�
 
 | 编号 | 子功能 | 验证标准 | 依赖 | 状态 |
 |------|--------|----------|------|------|
-| **F1.0** | 项目骨架与状态栏入口 | 启动 app → 状态栏图标可见 → 菜单可点击 → 偏好窗口可打开 → CI 绿灯 | F0, F0.1 | ❌ 未实现 |
+| **F1.0** | Integration Baseline（集成基线） | 启动 app → 状态栏图标可见 → 热键回调可达 → 状态机 idle → CI 绿灯 | F0, F0.1 | ❌ 未实现 |
 | **F1.1** | 窗口枚举与原 frame 快照 | 热键激活 → 控制台输出前台 App 在当前 Space 上的可见窗口列表 + 各窗口原 frame → 仅 1 个窗口时显示通知 | F1.0 | ❌ 未实现 |
 | **F1.2** | 自适应网格布局 | 热键激活 → 多个窗口被排列到焦点窗口所在屏的非重叠网格内 → 控制台输出布局参数（rows × cols） | F1.1 | ❌ 未实现 |
-| **F1.3** | 字母标签覆盖层与选择输入 | 排列完成 → 每个窗口左上角显示 32pt 黄色字母气泡（a-z 按 z-order 分配） → 按 Esc 还原退出 → 按有效字母进入最大化 | F1.2 | ❌ 未实现 |
+| **F1.3** | 字母标签覆盖层与选择输入 | 排列完成 → 每个窗口中心偏上显示 32pt 黄色字母气泡（a-z 按 z-order 分配） → 按 Esc 还原退出 → 按有效字母进入最大化；AX 失败窗口原位置显示标签降级 | F1.2 | ❌ 未实现 |
 | **F1.4** | 选中窗口最大化与 working 状态 | 按有效字母 → 对应窗口立即最大化到屏幕可见区域 → 覆盖层消失 → 菜单栏图标变 🔒 → 控制台输出选中窗口 ID 和最大化 frame | F1.3 | ❌ 未实现 |
-| **F1.5** | 还原流程与异常清理 | working 阶段按 ⌘⌥T → 所有窗口还原到 F1.1 快照的 frame → 菜单栏图标恢复正常 → 控制制台输出还原耗时；测试前台 App 切换/Space 切换自动还原 | F1.4 | ❌ 未实现 |
-| **F1.6** | 偏好设置驱动行为 | 5 项配置可持久化，热键录制、超时、字体大小、背景色、启动时运行均生效；打开偏好时退出 Tidy 模式 | F1.4 | ❌ 未实现 |
+| **F1.5** | 还原流程与异常清理 | working 阶段按 ⌘⌥T → 所有窗口还原到 F1.1 快照的 frame → 菜单栏图标恢复正常 → 控制制台输出还原耗时；测试 Space 切换自动还原、App 切换 Session 保留、目标 App 退出尽力恢复 | F1.4 | ❌ 未实现 |
+| **F1.6** | 偏好设置驱动行为（v1.0 候选） | 5 项配置可持久化，热键录制、超时、字体大小、背景色、启动时运行均生效；打开偏好时退出 Tidy 模式 | F1.4 | ❌ 未实现 |
 
 **依赖关系**：
 
@@ -128,23 +128,25 @@ F1.0 → F1.1 → F1.2 → F1.3 → F1.4 → F1.5
 
 | 模块 | 职责 | 依赖 | 被依赖 |
 |------|------|------|--------|
-| M1. 基础设施 | App 骨架、状态栏、偏好窗口（SwiftUI）、DI 容器 | 无 | M2-M5 |
+| M1. 基础设施 | App 骨架、状态栏、未来承载偏好窗口的模块、DI 容器 | 无 | M2-M5 |
 | M2. 输入检测 | CGEventTap、Carbon 热键 | M1 | M4 |
 | M3. 窗口服务 | CGWindowList 枚举、AXUIElement 操作、frame 快照与还原 | M1 | M4 |
 | M4. 编排控制 | TidyMode 状态机、激活/还原流程、选择输入处理 | M2, M3, M5 | — |
 | M5. 覆盖层 UI | NSPanel 覆盖层、字母标签渲染 | M1, M3 | M4 |
 
-**模块依赖图**：
+**模块依赖图**（A ──→ B = A depends on B）：
 
 ```
-M1 ──→ M2 ──→ M3 ──→ M4
- │              │      │
- └──────────────┴──→ M5 ←┘
+M4 ──→ M2 ──→ M1
+ │       │
+ ├──→ M3 ──→ M1
+ │     │
+ └──→ M5 ──→ M1, M3
 ```
 
 ###### M1. 基础设施（Infrastructure）
 
-**职责**：App 入口与生命周期、DI 容器、状态栏图标与菜单、偏好设置窗口（SwiftUI content）。
+**职责**：App 入口与生命周期、DI 容器、状态栏图标与菜单、未来承载偏好设置窗口的模块（v1.0 候选）。
 
 **核心类/协议**：
 
@@ -159,7 +161,7 @@ M1 ──→ M2 ──→ M3 ──→ M4
 | 维度 | Macim | Tidy | 选择理由 |
 |------|-------|------|---------|
 | 偏好窗口技术 | AppKit（NSGridView 表单） | NSWindow + SwiftUI content | macOS 12 SwiftUI 已稳定，偏好窗口交互简单，SwiftUI 开发效率更高 |
-| 状态栏图标状态 | 4 种 | 4 种（空闲/未授权/编排中/锁定工作） | 一致 |
+| 状态栏图标状态 | 4 种 | 4 种（空闲/未授权/编排中/锁定工作），v0.1 仅实现 3 种 | 一致，v0.1 简化 |
 | 菜单项数量 | 10+ | 5（简化） | Tidy 功能单一，无需复杂菜单 |
 
 ---
@@ -224,7 +226,7 @@ M1 ──→ M2 ──→ M3 ──→ M4
    - kCGWindowAlpha > 0
    - kCGWindowBounds 非空
 4. 通过 AXUIElementCreateApplication(pid) → kAXWindowsAttribute 获取 AXUIElement 列表
-5. 按 frame 匹配 CGWindowList 结果与 AXUIElement 列表（容差 1pt）
+5. 按 frame 匹配 CGWindowList 结果与 AXUIElement 列表（匹配算法为 P0 待验证候选，产出 MATCHED / AMBIGUOUS / UNMATCHED 三种结果）
 6. 输出 [(windowID, axUIElement, originalFrame)] 列表
 ```
 
@@ -251,7 +253,7 @@ M1 ──→ M2 ──→ M3 ──→ M4
 
 | 场景 | 处理 |
 |------|------|
-| 单个窗口 AXSetFrame 失败 | 跳过该窗口，不参与排列，记录 Warning 日志 |
+| 单个窗口 AXSetFrame 失败 | 跳过该窗口，保留原位置，在该窗口可见区域显示标签（原位置标签降级），本次会话降级为"仅标签窗口切换器"，记录 Warning 日志 |
 | 失败窗口数 > 50% | 终止 Tidy 模式，显示通知"Tidy: 大量窗口无法编排，已退出" |
 | 还原阶段单个窗口失败 | 跳过该窗口（保留排列后的位置），记录 Error 日志；其他窗口正常还原 |
 
@@ -298,8 +300,9 @@ M1 ──→ M2 ──→ M3 ──→ M4
 | selecting | 前台 App 切换 | restoring |
 | selecting | Space 切换 | restoring |
 | working | Tidy 热键按下 | restoring |
-| working | 前台 App 切换 | restoring |
+| working | 前台 App 切换 | Session 保留，返回后 working 继续 |
 | working | Space 切换 | restoring |
+| working | 目标 App 退出 | restoring（尽力恢复 + 清理 Session） |
 | restoring | 所有窗口 frame 已设置 | idle |
 
 **输入规则**（参考 Q10 决策）：
@@ -324,19 +327,19 @@ M1 ──→ M2 ──→ M3 ──→ M4
 
 **自适应网格算法**：
 
-| N | 网格（宽屏） | 网格（竖屏） |
-|---|-------------|-------------|
-| 2 | 1×2 | 2×1 |
-| 3 | 1×3 | 3×1 |
-| 4 | 2×2 | 2×2 |
-| 5-6 | 2×3 | 3×2 |
-| 7-9 | 3×3 | 3×3 |
-| 10-12 | 3×4 | 4×3 |
-| 13-16 | 4×4 | 4×4 |
-| 17-20 | 4×5 | 5×4 |
-| 21-25 | 5×5 | 5×5 |
-| 26 | 5×6 | 6×5 |
-| >26 | 仅取前 26 个（按 z-order）+ 通知 | 同左 |
+| N | 网格（宽屏） | 网格（竖屏） | 备注 |
+|---|-------------|-------------|------|
+| 2 | 1×2 | 2×1 | 核心场景 |
+| 3 | 1×3 | 3×1 | 核心场景 |
+| 4 | 2×2 | 2×2 | 核心场景 |
+| 5-6 | 2×3 | 3×2 | 核心场景 |
+| 7-9 | 3×3 | 3×3 | 核心场景 |
+| 10-12 | 3×4 | 4×3 | v1.0 Candidate，验证后决定 |
+| 13-16 | 4×4 | 4×4 | v1.0 Candidate，验证后决定 |
+| 17-20 | 4×5 | 5×4 | v1.0 Candidate，验证后决定 |
+| 21-25 | 5×5 | 5×5 | v1.0 Candidate，验证后决定 |
+| 26 | 5×6 | 6×5 | v1.0 Candidate，验证后决定 |
+| >26 | 仅取前 26 个（按 z-order）+ 通知 | 同左 | |
 
 **算法伪代码**：
 
@@ -417,7 +420,7 @@ func restoreAllFrames(snapshot: [WindowID: CGRect], windows: [WindowID: AXUIElem
 | 关闭其他窗口 | 同上 |
 | 打开新窗口 | 新窗口不参与还原（保持打开状态） |
 | Cmd+Tab 切换到其他窗口（App A 内部） | 还原所有窗口到原始 frame |
-| 切换到其他 App | 自动还原退出（per 状态机） |
+| 切换到其他 App | Session 保留，返回后 working 继续 |
 
 **数据模型**：
 
@@ -458,7 +461,7 @@ enum TidyState {
 |-----------|-----------|------|
 | `OverlayWindowController` | `OverlayWindowController` | 覆盖层窗口控制器（NSPanel） |
 | `LetterBubbleLayer` | `ScreenNumberLabelView`（Macim） | 字母标签 CAShapeLayer 渲染 |
-| `LetterPlacementCalculator` | `HintPlacementCalculator` | 字母标签位置计算（窗口左上角内侧） |
+| `LetterPlacementCalculator` | `HintPlacementCalculator` | 字母标签位置计算（窗口中心偏上） |
 
 **与 Macim 对比**：
 
@@ -469,7 +472,7 @@ enum TidyState {
 | 圆角半径 | 2px | 3px | 6px |
 | 内边距 | 紧凑 | 6×20px | 8×12px |
 | 阴影 | 无 | 0 4px 16px rgba(0,0,0,0.4) | 0 4px 16px rgba(0,0,0,0.4) |
-| 定位 | 元素中心 + 底部三角指针 | 屏幕中央 | 窗口左上角内侧偏移 (8, 8) |
+| 定位 | 元素中心 + 底部三角指针 | 屏幕中央 | 窗口中心偏上，动态约束在屏幕可见区域内 |
 | 渲染层 | CALayer（PrecomputedHintLayout） | CAShapeLayer | CAShapeLayer |
 
 **字母标签视觉规格**：
@@ -483,7 +486,7 @@ enum TidyState {
 | 圆角半径 | 6px | |
 | 内边距 | 8px × 12px | |
 | 阴影 | 0 4px 16px rgba(0,0,0,0.4) | 增强浮动感 |
-| 定位 | 窗口 frame 左上角内侧，偏移 (8px, 8px) | 不遮挡标题栏按钮（关闭/最小化/最大化） |
+| 定位 | 窗口 frame 中心偏上，避开系统控制按钮，动态约束在屏幕可见区域内 | 不遮挡标题栏按钮（关闭/最小化/最大化），始终可见 |
 | 层级 | NSPanel（.nonactivatingPanel + .popUpMenu） | 与 Macim HintMode 一致 |
 | 跨 Space | .fullScreenAuxiliary | 仅当前 Space 可见 |
 
@@ -505,7 +508,7 @@ enum TidyState {
 2. M5 创建 NSPanel 覆盖目标屏幕
 3. 对每个参与排列的窗口：
    - 计算窗口在屏幕上的 frame（已设置的新 frame）
-   - 计算标签位置：windowFrame.origin + (8, 8)
+   - 计算标签位置：窗口 frame 中心偏上，避开系统控制按钮，动态约束在屏幕可见区域内
    - 创建 LetterBubbleLayer，绘制圆角矩形 + 字母文字
    - 添加到 NSPanel 的 contentView.layer
 4. 标签添加完成后淡入显示（200ms ease-out）
@@ -524,6 +527,8 @@ enum TidyState {
 * NSPanel 覆盖层（.nonactivatingPanel，.popUpMenu 层级，.fullScreenAuxiliary 跨 Space）
 * 显式状态机（5 状态）+ Combine UI 桥接
 * 手动依赖注入（初始化器注入）
+* NSWorkspace.didActivateApplicationNotification（App 切换 Session 保留，非自动还原）
+* NSWorkspace.activeSpaceDidChangeNotification（Space 切换自动还原）
 * UserDefaults + Combine（5 项配置，实时生效）
 * os_log（com.tidy.windowmanagement 子系统）
 
@@ -534,25 +539,25 @@ enum TidyState {
 | 激活模型 | 单热键 Toggle（⌘⌥T） | 一个键管全部，认知成本最低 |
 | 窗口范围 | 当前 Space 可见窗口 | 简单可靠；跨 Space 操作不稳定 |
 | 目标屏幕 | 焦点窗口所在屏 | 与 Mission Control 一致，符合用户上下文 |
-| 布局算法 | 自适应网格，上限 26 | 单字符字母覆盖，3×3~5×6 网格符合屏幕长宽比 |
+| 布局算法 | 自适应网格，核心 2-9，上限 26 为 v1.0 候选 | 核心场景 3×3 内足够，v1.0 验证后决定是否扩展 |
 | 字母分配 | 按 z-order 排序后按网格顺序分配 a-z | 最常用窗口在左上角且标签是 a |
 | 选中后其他窗口 | 原地不动 | 还原逻辑最简单，副作用最小 |
-| 还原语义 | 撤销排列，无视 working 阶段手动操作 | 符合用户心智，避免追踪复杂状态 |
-| 字母标签 UI | 32pt 黄色气泡，左上角内侧 | 远距离可读，不遮挡标题栏按钮 |
+| 还原语义 | 撤销排列；App 切换不自动还原（Session 保留），Space 切换还原，目标 App 退出尽力恢复 | App 切换保留工作上下文，Space 切换还原防止错位 |
+| 字母标签 UI | 32pt 黄色气泡，中心偏上动态约束 | 远距离可读，不遮挡标题栏按钮，始终可见 |
 | 输入处理 | CGEventTap 拦截，单字符即选 | 26 个窗口单字符足够，无需回车确认 |
 | 偏好窗口技术 | NSWindow + SwiftUI content | macOS 12 SwiftUI 已稳定，开发效率高 |
 | EventTap 生命周期 | 仅 selecting 阶段启用 | working 阶段不拦截，用户在 App A 上正常工作 |
-| AXSetFrame 失败处理 | 跳过该窗口，>50% 失败则终止 | 容错与降级 |
+| AXSetFrame 失败处理 | 跳过失败窗口，原位置显示标签降级，>50% 失败终止 | 单窗口降级为仅标签切换器，容错与安全 |
 
 ##### 风险
 
 | 风险 | 说明 | 应对策略 |
 |------|------|----------|
-| AXSetFrame 不稳定 | 部分应用（如 Logic Pro、Final Cut Pro）可能不响应 AX frame 设置 | 单窗口失败跳过；>50% 失败终止；记录 Warning 日志 |
+| AXSetFrame 不稳定 | 部分应用（如 Logic Pro、Final Cut Pro）可能不响应 AX frame 设置 | 单窗口失败：保留原位置，原位置标签降级；>50% 失败终止；记录 Warning 日志 |
 | 全屏窗口冲突 | 全屏窗口无法移动 | 当前 Space 可见窗口过滤已排除全屏窗口（全屏窗口在自己的 Space） |
 | 多显示器坐标 | 高频 Bug 来源 | 使用 NSScreen.visibleFrame；目标屏幕判定基于焦点窗口中心 |
 | CGEventTap 被禁用 | .tapDisabledByTimeout / .tapDisabledByUserInput | 自动重新启用；失败则退出 selecting 还原所有窗口 |
-| 前台 App 切换 | 还原可能错位 | 监听 NSWorkspace.didActivateApplicationNotification，自动还原 |
+| 前台 App 切换 | Session 保留，返回后 working 继续 | 监听 NSWorkspace.didActivateApplicationNotification，保留 Session 而非自动还原；Space 切换仍自动还原 |
 | Space 切换 | 还原可能错位 | 监听 NSWorkspace.activeSpaceDidChangeNotification，自动还原 |
 | Stage Manager 冲突 | macOS 13+ Stage Manager 可能改变窗口位置 | 检测 Stage Manager 启用状态，启用时显示警告（v1 不深度集成） |
 | 窗口关闭 | 还原时该窗口已不存在 | 跳过该窗口，记录 Info 日志，不报错 |
@@ -560,7 +565,7 @@ enum TidyState {
 | Tidy 自身崩溃 | 窗口卡在排列状态 | v1 不持久化快照（接受丢失）；v2 考虑持久化以支持崩溃恢复 |
 | macOS 更新 | Apple 经常修改权限 | 仅需辅助功能权限；App Sandbox 不兼容（已移除） |
 | 偏好窗口与 NSPanel 集成 | SwiftUI 与 NSPanel 集成在 macOS 12 有已知问题 | 偏好窗口用 NSWindow + SwiftUI content；覆盖层坚持 AppKit |
-| 字母标签遮挡窗口内容 | 32pt 标签可能遮挡窗口左上角内容 | 标签位于窗口内侧 (8, 8) 偏移，尽量小；用户可配置字体大小 |
+| 字母标签遮挡窗口内容 | 32pt 标签可能遮挡窗口内容 | 标签位于窗口中心偏上，动态约束在屏幕可见区域内；用户可配置字体大小 |
 
 ---
 
@@ -644,7 +649,39 @@ F1 working 阶段不支持循环切换（用户必须重新触发 Tidy）；F4 �
 
 ---
 
-## 四、推荐 MVP 范围
+## 四、v0.1 验证版与 v1.0 候选版的区分
+
+> 对应 F1_窗口编排核心的首次交付。v0.1 是当前验证版（Validation Slice），v1.0 是正式版候选（Candidate），验证后决定是否纳入。
+
+### v0.1 Validation Slice（验证版）
+
+| 项目 | 范围 |
+|------|------|
+| 窗口数量 | 2~9（核心场景） |
+| 目标屏幕 | 当前焦点屏 |
+| 热键 | 固定热键 ⌘⌥T（不可配置） |
+| 最大化 | Temporary Maximize（临时放大） |
+| 字母标签位置 | 中心偏上，动态约束在屏幕内 |
+| AX 失败处理 | 单窗口失败 → 原位置标签降级；>50% 失败终止 |
+| App 切换 | 不自动还原，Session 保留，返回后 working 继续 |
+| Space 切换 | 自动还原 |
+| 权限引导 | 最小权限引导 |
+| 状态栏图标 | 3 种（未授权 / 空闲 / 编排中） |
+| 偏好设置 | 不做 |
+
+### v1.0 Candidate（正式版候选，验证后决定）
+
+| 项目 | 说明 |
+|------|------|
+| 窗口数量 | 是否扩展至 >9（最多 26） |
+| 偏好设置 | 是否增加偏好设置窗口（热键录制、超时、字体大小、背景色、启动时运行） |
+| 状态栏图标 | 是否增加第 4 种"锁定工作"图标状态 |
+| App 切换还原 | 是否改变 App 切换自动还原策略 |
+| 选中策略 | 是否增加 Focus / Bring Forward 选中策略 |
+
+---
+
+## 五、推荐 MVP 范围
 
 ### v1.0 — Tidy 核心功能
 
@@ -654,14 +691,14 @@ F1 working 阶段不支持循环切换（用户必须重新触发 Tidy）；F4 �
 | 全局热键 ⌘⌥T | ✅ | Carbon RegisterEventHotKey 注册，可配置 |
 | 权限引导 | ✅ | 辅助功能权限引导窗口（复用 Macim F0 设计） |
 | 窗口枚举 | ✅ | CGWindowList + AX 混合，当前 Space 可见窗口 |
-| 自适应网格布局 | ✅ | 2-26 个窗口，按屏幕长宽比自动选择最佳网格 |
-| 字母标签覆盖层 | ✅ | 32pt 黄色气泡，左上角内侧，a-z 按 z-order 分配 |
+| 自适应网格布局 | ✅ | 2-9 个窗口（核心），最多 26（v1.0 候选），按屏幕长宽比自动选择最佳网格 |
+| 字母标签覆盖层 | ✅ | 32pt 黄色气泡，中心偏上动态约束，a-z 按 z-order 分配 |
 | 选择输入处理 | ✅ | CGEventTap 拦截，单字符即选，无效忽略 |
 | 选中窗口最大化 | ✅ | AXSetFrame 设置为目标屏幕 visibleFrame |
 | 还原流程 | ✅ | 按快照还原所有窗口到排列前 frame |
-| 异常清理 | ✅ | 前台 App 切换/Space 切换/超时自动还原 |
+| 异常清理 | ✅ | App 切换 Session 保留/Space 切换自动还原/目标 App 退出尽力恢复/超时自动还原 |
 | 偏好设置 | ✅ | 5 项配置 + SwiftUI 偏好窗口 |
-| AXSetFrame 失败处理 | ✅ | 跳过失败窗口，>50% 失败终止 |
+| AXSetFrame 失败处理 | ✅ | 跳过失败窗口，原位置标签降级，>50% 失败终止 |
 
 ### v1.5 — 应用专属配置
 
@@ -679,7 +716,7 @@ F1 working 阶段不支持循环切换（用户必须重新触发 Tidy）；F4 �
 
 ---
 
-## 五、推荐技术架构
+## 六、推荐技术架构
 
 ### Target 结构
 
@@ -734,27 +771,27 @@ F1 working 阶段不支持循环切换（用户必须重新触发 Tidy）；F4 �
 
 ---
 
-## 六、关键技术风险
+## 七、关键技术风险
 
 | 风险 | 说明 | 应对策略 |
 |------|------|----------|
-| AXSetFrame 不稳定 | 部分应用不响应 AX frame 设置 | 单窗口失败跳过；>50% 失败终止；维护已知不兼容 App 黑名单 |
+| AXSetFrame 不稳定 | 部分应用不响应 AX frame 设置 | 单窗口失败：保留原位置，原位置标签降级；>50% 失败终止；维护已知不兼容 App 黑名单 |
 | 多显示器坐标 | 高频 Bug 来源 | 全局坐标系；目标屏幕基于焦点窗口；NSScreen.visibleFrame 排除 Dock/菜单栏 |
 | macOS 更新 | Apple 经常修改权限 | 仅需辅助功能权限；App Sandbox 不兼容（已移除） |
 | CGEventTap 被禁用 | 系统保护机制 | 自动重新启用；失败则退出 selecting 还原所有窗口 |
-| 前台 App 切换 | 还原可能错位 | 监听 NSWorkspace.didActivateApplicationNotification，自动还原 |
+| 前台 App 切换 | Session 保留，返回后 working 继续 | 监听 NSWorkspace.didActivateApplicationNotification，保留 Session 而非自动还原；Space 切换仍自动还原 |
 | Space 切换 | 还原可能错位 | 监听 NSWorkspace.activeSpaceDidChangeNotification，自动还原 |
 | Stage Manager | macOS 13+ Stage Manager 改变窗口位置 | v1 检测后显示警告，不深度集成；v2 评估深度集成 |
 | 全屏窗口 | 全屏窗口无法移动 | 当前 Space 过滤已排除（全屏窗口在自己 Space） |
 | 窗口关闭 | 还原时窗口已不存在 | 跳过该窗口，记录 Info 日志 |
-| 目标 App 退出 | working 阶段 App 退出 | 监听 NSWorkspace.didTerminateApplicationNotification，清理 TidySession |
+| 目标 App 退出 | working 阶段 App 退出 | 监听 NSWorkspace.didTerminateApplicationNotification，尽力恢复 + 清理 TidySession |
 | Tidy 自身崩溃 | 窗口卡在排列状态 | v1 接受丢失；v2 评估持久化快照 |
 | 偏好窗口与覆盖层 | SwiftUI 与 NSPanel 集成问题 | 偏好用 NSWindow+SwiftUI；覆盖层坚持 AppKit |
-| 字母标签遮挡 | 32pt 标签遮挡窗口内容 | (8, 8) 偏移；字体大小可配置 |
+| 字母标签遮挡 | 32pt 标签遮挡窗口内容 | 中心偏上定位，动态约束在屏幕可见区域内；字体大小可配置 |
 
 ---
 
-## 七、推荐商业模式
+## 八、推荐商业模式
 
 | 版本 | 内容 |
 |------|------|
@@ -768,7 +805,7 @@ macOS Power User 群体更偏好买断。Tidy v1.0 完整功能免费，降低�
 
 ---
 
-## 八、应用界面
+## 九、应用界面
 
 Tidy 是**菜单栏应用**（Menu Bar App），没有传统的主窗口界面。
 
@@ -776,7 +813,7 @@ Tidy 是**菜单栏应用**（Menu Bar App），没有传统的主窗口界面�
 
 * 位置：macOS 顶部菜单栏右侧
 * 图标样式：方形 T 字母图标，简洁设计
-* 4 种状态：普通 / ⚠️ 警告（未授权）/ 🔵 蓝点（编排中）/ 🔒 锁标识（锁定工作）
+* 4 种状态：普通 / ⚠️ 警告（未授权）/ 🔵 蓝点（编排中）/ 🔒 锁标识（锁定工作）；v0.1 仅实现前 3 种
 * 交互：左键/右键点击显示下拉菜单
 
 ### 状态栏菜单
@@ -808,7 +845,7 @@ NSWindow + SwiftUI content，4 个标签页（NSTabViewController 或 SwiftUI Ta
 * 层级：.popUpMenu（高于普通窗口，低于系统菜单）
 * 跨 Space：.fullScreenAuxiliary
 * 不抢焦点：ignoresMouseEvents = true
-* 组成：字母标签（32pt 黄色气泡，左上角内侧）
+* 组成：字母标签（32pt 黄色气泡，中心偏上）
 
 ### 权限引导窗口
 
@@ -824,20 +861,20 @@ NSWindow + SwiftUI content，4 个标签页（NSTabViewController 或 SwiftUI Ta
 | 已授权（空闲） | ❌ 隐藏 | ✅ 普通 | 正常工作状态 |
 | 已授权（偏好设置打开） | ✅ 显示 | ✅ 普通 | 临时显示 Dock 图标 |
 | 已授权（arranging / selecting） | ❌ 隐藏 | 🔵 蓝点 | 编排进行中，通常 < 30 秒 |
-| 已授权（working） | ❌ 隐藏 | 🔒 锁标识 | 用户在目标 App 上工作，时长不定 |
+| 已授权（working） | ❌ 隐藏 | 🔒 锁标识（v1.0 候选） | 用户在目标 App 上工作，时长不定 |
 
 ---
 
-## 九、实现路线图
+## 十、实现路线图
 
-按 [docs.md](../docs.md) 第 4 节阶段推进顺序，先准备阶段后功能阶段：
+按 [docs.md](../docs.md) 第 4 节阶段推进顺序，先准备阶段后功能阶段。阶段推进的最高权威为 [Tidy_开发路线图.md](Tidy_开发路线图.md)。
 
 | 阶段 | 范围 | Exit Gate |
 |------|------|-----------|
 | P0_技术探针 | AX/CGEventTap/NSPanel/性能验证 + SPM 三 target 骨架 + SwiftLint | 技术可行性已证明，骨架可编译 |
 | F0_权限引导 | 辅助功能权限检测与引导窗口 | 权限流程可用 |
 | F0.1_状态栏与快捷键 | NSStatusItem 菜单 + Carbon 热键 ⌘⌥T | 状态栏可交互，热键可触发 |
-| F1_窗口编排核心（F1.0~F1.6） | 窗口枚举 → 网格布局 → 字母标签 → 最大化 → 还原 → 偏好 | 完整闭环可用 |
+| F1_窗口编排核心（F1.0~F1.6） | 窗口枚举 → 网格布局 → 字母标签 → 最大化 → 还原 → 偏好（v1.0 候选） | 完整闭环可用 |
 | F2_应用专属配置 | bundleId 匹配的应用级配置覆盖 | 应用级配置生效 |
 | F3_自定义布局模板 | 用户保存与切换布局模板 | 模板可保存与切换 |
 | F4_循环切换 | working 阶段窗口循环切换 | 循环切换可用 |
@@ -847,7 +884,7 @@ F1 内部子功能依赖见上文 F1.0~F1.6 表格；详细任务与命令由各
 
 ---
 
-## 十、最终产品方向（建议）
+## 十一、最终产品方向（建议）
 
 Tidy 不应定位为：
 
@@ -870,6 +907,20 @@ Tidy 不应定位为：
 
 ## 版本记录
 
+- **v1.2**（2026-07-28）
+  - 新增第四节"v0.1 验证版与 v1.0 候选版的区分"：明确 v0.1 Validation Slice 与 v1.0 Candidate 的拆分；
+  - F1.0 改为 Integration Baseline（集成基线），仅做依赖组装与空状态机启动；
+  - 修正 M1-M5 模块依赖图，与表格一致（A ──→ B = A depends on B）；
+  - 字母标签定位从"窗口左上角内侧"改为"窗口中心偏上，动态约束在屏幕可见区域内"；
+  - App 切换不再自动还原，改为 Session 保留、返回后 working 继续；Space 切换仍自动还原；目标 App 退出尽力恢复 + 清理 Session；
+  - AXSetFrame 单窗口失败改为原位置标签降级模式，>50% 失败仍终止；
+  - 窗口数量核心收敛为 2-9，10-26 标注为 v1.0 Candidate；
+  - 状态栏图标 v0.1 仅实现 3 种（未授权/空闲/编排中），锁定工作为 v1.0 候选；
+  - 偏好设置（F1.6）改为 v1.0 候选，v0.1 不做偏好窗口；
+  - M1 基础设施去掉偏好窗口，改为"未来承载偏好窗口的模块"；
+  - CGWindow↔AXWindow 匹配算法从"容差 1pt"改为"P0 待验证候选算法"，产出 MATCHED / AMBIGUOUS / UNMATCHED；
+  - 路线图新增对 `Tidy_开发路线图.md` 的引用，明确其为阶段推进最高权威；
+  - 节编号顺延（新增第四节，原四~十顺延为五~十一）。
 - **v1.1**（2026-07-28）
   - 同步 [docs.md](../docs.md) v0.5 阶段推进顺序：新增"准备阶段"小节，引入 `P0_技术探针`（技术验证 + 项目骨架），明确其先于功能优先级 P0/P1/P2；
   - 新增"维度说明"：本节 `P0/P1/P2` 是**功能优先级**，与 `docs/phases/` 下的 `P0_技术探针` 准备阶段是不同维度；
