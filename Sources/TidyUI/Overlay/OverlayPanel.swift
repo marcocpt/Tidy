@@ -73,7 +73,8 @@ public final class OverlayPanel: OverlayDisplaying {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.ignoresMouseEvents = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // 不使用 .canJoinAllSpaces：覆盖层应仅当前 Space 可见（TC-P0-020）
+        panel.collectionBehavior = [.fullScreenAuxiliary]
         panel.hasShadow = false
     }
 
