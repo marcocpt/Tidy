@@ -118,6 +118,32 @@ public final class OverlayPanel: OverlayDisplaying {
     }
 }
 
+// MARK: - OverlayShowing 跨层适配
+
+/// OverlayPanel 同时实现 TidyCore 的 OverlayShowing 协议。
+///
+/// OverlayShowing 使用 LayoutCell（TidyCore 类型），OverlayDisplaying 使用 OverlayItem（TidyUI 类型）。
+/// 此扩展负责 LayoutCell → OverlayItem 的适配转换，
+/// 让 TidyOrchestrator 可以直接通过 OverlayShowing 协议驱动覆盖层，
+/// 同时保持 OverlayPanel 的 TidyUI 内部 API 不变。
+extension OverlayPanel: OverlayShowing {
+    /// 显示覆盖层标签（OverlayShowing 协议入口）
+    /// - Parameters:
+    ///   - cells: 布局单元格列表（来自 TidyCore 的 LayoutCalculator）
+    ///   - screenFrame: 目标屏幕可见区域
+    public func showOverlay(cells: [LayoutCell], on screenFrame: CGRect) {
+        let items = cells.map { cell in
+            OverlayItem(label: cell.label, frame: cell.frame, isSelected: false)
+        }
+        show(items: items, on: screenFrame)
+    }
+
+    /// 隐藏覆盖层（OverlayShowing 协议入口）
+    public func hideOverlay() {
+        hide()
+    }
+}
+
 // MARK: - 标签视图
 
 /// 单个标签视图，绘制半透明圆角矩形与居中字母。

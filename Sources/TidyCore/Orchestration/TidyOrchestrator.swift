@@ -1,5 +1,23 @@
 import ApplicationServices
 import Foundation
+import os.log
+
+// MARK: - 覆盖层显示协议（跨层抽象）
+
+/// 覆盖层显示协议，解耦 TidyCore 与 TidyUI（INV-001 / INV-008）。
+///
+/// TidyCore 定义此协议，TidyUI 的 OverlayPanel 实现它，
+/// TidyApp 在初始化时注入。协议使用 LayoutCell（已在 TidyCore 中），
+/// 避免引入 TidyUI 类型。
+public protocol OverlayShowing: AnyObject {
+    /// 显示覆盖层标签
+    /// - Parameters:
+    ///   - cells: 布局单元格列表（含字母标签与 frame）
+    ///   - screenFrame: 目标屏幕可见区域
+    func showOverlay(cells: [LayoutCell], on screenFrame: CGRect)
+    /// 隐藏覆盖层
+    func hideOverlay()
+}
 
 // MARK: - 编排状态
 
@@ -47,6 +65,13 @@ public protocol TidyOrchestrating {
     /// 根据架构契约 INV-009：还原必须使用编排前的快照。
     func deactivate()
 
+    /// 热键 toggle：idle 时 activate，selecting/working 时 deactivate
+    ///
+    /// 对应设计文档 4.2 节状态转换：
+    /// - idle + 热键 → arranging
+    /// - selecting + 热键 → restoring
+    func toggle()
+
     /// 当前编排状态
     var state: TidyState { get }
 }
@@ -72,6 +97,12 @@ public final class TidyOrchestrator: TidyOrchestrating {
     /// 默认为 0，表示未设置。App 层在激活编排前必须设置此值。
     public var frontmostPID: pid_t = 0
 
+    /// 前台 App 的 Bundle ID，由 App 层设置（用于性能日志中的 app 字段）
+    ///
+    /// 默认为空字符串。App 层在激活编排前应设置此值（来自 NSWorkspace.frontmostApplication?.bundleIdentifier）。
+    /// 性能埋点输出格式：`tidy.performance app=<bundle_id> ...`（对应 P0_02 1.6 节）。
+    public var frontmostBundleID: String = ""
+
     /// 排列前的窗口位置快照
     ///
     /// 根据架构契约 INV-009：快照与还原必须成对且原子。
@@ -83,6 +114,9 @@ public final class TidyOrchestrator: TidyOrchestrating {
     /// 当前布局单元格列表
     private var layoutCells: [LayoutCell] = []
 
+    /// 当前目标屏幕（用于覆盖层显示与最大化）
+    private var targetScreenFrame: CGRect = .zero
+
     private let windowEnumerator: WindowEnumerating
     private let windowManipulator: WindowManipulating
     private let layoutCalculator: GridLayoutCalculating
@@ -90,6 +124,15 @@ public final class TidyOrchestrator: TidyOrchestrating {
     private let screenProvider: ScreenInfoProviding
     private let hotkeyRegistrar: HotkeyRegistrating
     private let eventTapManager: EventTapManaging
+
+    /// 覆盖层显示（由 TidyApp 注入，可为 nil 用于无 UI 测试）
+    private weak var overlay: OverlayShowing?
+
+    /// 性能日志（对应 P0_02 1.6 节性能埋点要求）
+    private let perfLog = OSLog(
+        subsystem: "com.tidy.windowmanagement",
+        category: .pointsOfInterest
+    )
 
     /// 创建编排控制器
     /// - Parameters:
@@ -100,6 +143,7 @@ public final class TidyOrchestrator: TidyOrchestrating {
     ///   - screenProvider: 屏幕信息提供者
     ///   - hotkeyRegistrar: 热键注册器
     ///   - eventTapManager: 事件拦截管理器
+    ///   - overlay: 覆盖层显示（可选，由 TidyApp 注入）
     public init(
         windowEnumerator: WindowEnumerating,
         windowManipulator: WindowManipulating,
@@ -107,7 +151,8 @@ public final class TidyOrchestrator: TidyOrchestrating {
         displayCoordinator: DisplayCoordinating,
         screenProvider: ScreenInfoProviding,
         hotkeyRegistrar: HotkeyRegistrating,
-        eventTapManager: EventTapManaging
+        eventTapManager: EventTapManaging,
+        overlay: OverlayShowing? = nil
     ) {
         self.windowEnumerator = windowEnumerator
         self.windowManipulator = windowManipulator
@@ -116,14 +161,22 @@ public final class TidyOrchestrator: TidyOrchestrating {
         self.screenProvider = screenProvider
         self.hotkeyRegistrar = hotkeyRegistrar
         self.eventTapManager = eventTapManager
+        self.overlay = overlay
+    }
+
+    /// 注入覆盖层显示（用于延迟注入场景）
+    public func setOverlay(_ overlay: OverlayShowing) {
+        self.overlay = overlay
     }
 
     /// 触发编排流程
     ///
     /// 根据架构契约 INV-006：仅在 .idle 状态下可执行。
     /// 根据架构契约 INV-010：调用前应确认辅助功能权限已授予。
+    /// 性能埋点（P0_02 1.6 节）：记录 T0/T1/T2 并输出 os_log。
     public func activate() {
         guard state == .idle else { return }
+        let t0 = DispatchTime.now()
         state = .arranging
 
         let focusedWindow = windowManipulator.focusedWindow(forPID: frontmostPID)
@@ -131,10 +184,12 @@ public final class TidyOrchestrator: TidyOrchestrating {
             for: focusedWindow,
             provider: screenProvider
         )
+        targetScreenFrame = targetScreen.frame
 
         let windows = windowEnumerator.enumerateVisibleWindows(forPID: frontmostPID)
         guard !windows.isEmpty else {
             state = .idle
+            logPerformance(t0: t0, t1: nil, t2: nil, windowCount: 0, success: false)
             return
         }
 
@@ -148,9 +203,16 @@ public final class TidyOrchestrator: TidyOrchestrating {
         layoutCells = cells
 
         applyLayout(cells, windows: windows)
+        let t1 = DispatchTime.now()
+
+        // 显示覆盖层（对应设计文档 3. 数据流第 254 行）
+        overlay?.showOverlay(cells: cells, on: targetScreenFrame)
 
         state = .selecting
         startKeyEventTap()
+        let t2 = DispatchTime.now()
+
+        logPerformance(t0: t0, t1: t1, t2: t2, windowCount: windows.count, success: true)
     }
 
     /// 按字母标签选择窗口并最大化
@@ -173,6 +235,9 @@ public final class TidyOrchestrator: TidyOrchestrating {
         let maximizedFrame = screen.frame.insetBy(dx: 4, dy: 4)
         windowManipulator.setFrame(maximizedFrame, for: window)
 
+        // 隐藏覆盖层（对应设计文档 3. 数据流第 259 行）
+        overlay?.hideOverlay()
+
         state = .working
         eventTapManager.stopTap()
     }
@@ -188,12 +253,33 @@ public final class TidyOrchestrator: TidyOrchestrating {
             windows: arrangedWindows
         )
 
+        // 隐藏覆盖层（若未隐藏）
+        overlay?.hideOverlay()
+
         positionSnapshot = [:]
         arrangedWindows = []
         layoutCells = []
+        targetScreenFrame = .zero
         state = .idle
 
         eventTapManager.stopTap()
+    }
+
+    /// 热键 toggle：idle 时 activate，selecting/working 时 deactivate
+    ///
+    /// 对应设计文档 4.2 节状态转换：
+    /// - idle + 热键 → arranging（触发 activate）
+    /// - selecting + 热键 → restoring（触发 deactivate）
+    /// - working + 热键 → restoring（触发 deactivate）
+    public func toggle() {
+        switch state {
+        case .idle:
+            activate()
+        case .selecting, .working:
+            deactivate()
+        case .arranging:
+            break
+        }
     }
 
     // MARK: - 私有方法
@@ -226,5 +312,41 @@ public final class TidyOrchestrator: TidyOrchestrating {
         let label = Character(scalar)
         selectWindow(label: label)
         return true
+    }
+
+    /// 性能埋点：记录 T0/T1/T2 时间戳并输出到 os_log
+    ///
+    /// 对应 P0_02 设计文档 1.6 节性能埋点要求：
+    /// - T0：收到热键 callback 时刻（activate() 入口）
+    /// - T1：所有窗口 AXSetFrame 完成时刻（applyLayout 结束）
+    /// - T2：覆盖层与标签可见且可接受输入时刻（overlayPanel.show 完成 + startKeyEventTap 启用）
+    /// - Arrange latency = T2 - T0，单位毫秒
+    /// - 失败路径也记录 T0 但 T1/T2 可缺失（记为 0）
+    ///
+    /// 输出格式：`tidy.performance app=<bundle_id> windows=<count> t0=<ms> t1=<ms> t2=<ms> latency=<ms> success=<0|1>`
+    private func logPerformance(
+        t0: DispatchTime,
+        t1: DispatchTime?,
+        t2: DispatchTime?,
+        windowCount: Int,
+        success: Bool
+    ) {
+        let t0ms = t0.uptimeNanoseconds / 1_000_000
+        let t1ms = (t1?.uptimeNanoseconds ?? 0) / 1_000_000
+        let t2ms = (t2?.uptimeNanoseconds ?? 0) / 1_000_000
+        let latency = t2ms > t0ms ? t2ms - t0ms : 0
+
+        os_log(
+            "tidy.performance app=%{public}@ windows=%d t0=%lld t1=%lld t2=%lld latency=%lld success=%d",
+            log: perfLog,
+            type: .info,
+            frontmostBundleID,
+            windowCount,
+            t0ms,
+            t1ms,
+            t2ms,
+            latency,
+            success ? 1 : 0
+        )
     }
 }

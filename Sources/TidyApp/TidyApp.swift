@@ -41,7 +41,7 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
         let statusManager = StatusItemManager()
         statusManager.setup(title: "T", menuItems: [
             StatusMenuItem(title: "触发编排", action: { [weak self] in
-                self?.triggerArrange()
+                self?.toggleOrchestration()
             }),
             StatusMenuItem.separator(),
             StatusMenuItem(title: "退出", action: {
@@ -50,9 +50,11 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
         ])
         self.statusItemManager = statusManager
 
-        // MARK: - 覆盖层
+        // MARK: - 覆盖层（注入到 orchestrator，跨层适配 OverlayShowing）
 
-        self.overlayPanel = OverlayPanel()
+        let overlayPanel = OverlayPanel()
+        self.overlayPanel = overlayPanel
+        orchestrator.setOverlay(overlayPanel)
 
         // MARK: - 注册热键 ⌘⌥T
 
@@ -61,16 +63,20 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
             modifiers: UInt32(cmdKey | optionKey)
         )
         hotkeyRegistrar.register(hotkey: config) { [weak self] in
-            self?.triggerArrange()
+            self?.toggleOrchestration()
         }
     }
 
-    // MARK: - 触发编排
+    // MARK: - 热键 toggle
 
-    private func triggerArrange() {
+    /// 热键/菜单回调：idle 时触发 activate，selecting/working 时触发 deactivate。
+    /// 对应设计文档 4.2 节状态转换。
+    private func toggleOrchestration() {
         guard let orchestrator = orchestrator else { return }
-        orchestrator.frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
-        orchestrator.activate()
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        orchestrator.frontmostPID = frontmost?.processIdentifier ?? 0
+        orchestrator.frontmostBundleID = frontmost?.bundleIdentifier ?? ""
+        orchestrator.toggle()
     }
 }
 
