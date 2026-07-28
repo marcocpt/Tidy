@@ -3,24 +3,37 @@
 .AppleDouble
 .LSOverride
 
+# Xcode
+xcuserdata/
+*.xcworkspace/
+*.xcodeproj/xcuserdata/
+DerivedData/
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# SPM
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# SwiftLint
+swiftlint_report.json
+
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-dist/
-build/
-.venv/
-venv/
-
-# Node
-node_modules/
-
 # Misc
 *.log
 .env
+credentials/
