@@ -55,4 +55,27 @@ final class EventTapManagerTests: XCTestCase {
         manager.handleTapDisabled()
         // 不崩溃即可
     }
+
+    // MARK: - TC-P0-016/017 补充：边界场景
+
+    func test_未启动时处理禁用_不崩溃() {
+        guard let manager = manager else { return }
+        // 未启动 tap 时调用 handleTapDisabled 应安全返回
+        manager.handleTapDisabled()
+        XCTAssertFalse(manager.isActive, "未启动时应不活跃")
+        XCTAssertNil(manager.lastError, "未启动时 lastError 应为 nil")
+    }
+
+    func test_停止后处理禁用_不崩溃() {
+        guard let manager = manager else { return }
+        manager.startTap { _ in false }
+        manager.stopTap()
+        manager.handleTapDisabled()
+        XCTAssertFalse(manager.isActive, "停止后应不活跃")
+    }
+
+    func test_lastError初始为nil() {
+        guard let manager = manager else { return }
+        XCTAssertNil(manager.lastError, "初始状态 lastError 应为 nil")
+    }
 }
