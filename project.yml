@@ -26,6 +26,8 @@ targets:
       - path: TidyApp
     info:
       path: TidyApp/Info.plist
+      properties:
+        LSUIElement: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tidy.windowmanagement

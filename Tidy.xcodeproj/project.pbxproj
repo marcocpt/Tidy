@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		15B0C951636A940D595E42F8 /* TidyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0427B6E8CA6CCAD998FB9DE0 /* TidyApp.swift */; };
 		3BBF4065024B6845278B1251 /* TidyUI in Frameworks */ = {isa = PBXBuildFile; productRef = DAC70CCD5CE526E4E81234F0 /* TidyUI */; };
+		4147056F2B67C8E5210FB2E7 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCD1B07BB03922417D7131B /* main.swift */; };
 		A56F483443EFCA7B1BC62F5F /* TidyAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99DE04AF3B10CA3240C3C045 /* TidyAppUITests.swift */; };
 		D5905CAF1F659423DDE56F20 /* TidyCore in Frameworks */ = {isa = PBXBuildFile; productRef = AD4D53CCCAA717700E62EC1A /* TidyCore */; };
 /* End PBXBuildFile section */
@@ -29,6 +30,7 @@
 		3DB2BA2430EC159C297721B9 /* TidyAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TidyAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3E47974155BA10E1B960605F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		99DE04AF3B10CA3240C3C045 /* TidyAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidyAppUITests.swift; sourceTree = "<group>"; };
+		DDCD1B07BB03922417D7131B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		EF13B283386AC69830088EE8 /* Tidy */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Tidy; path = .; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -68,6 +70,7 @@
 			isa = PBXGroup;
 			children = (
 				3E47974155BA10E1B960605F /* Info.plist */,
+				DDCD1B07BB03922417D7131B /* main.swift */,
 				0427B6E8CA6CCAD998FB9DE0 /* TidyApp.swift */,
 			);
 			path = TidyApp;
@@ -178,6 +181,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15B0C951636A940D595E42F8 /* TidyApp.swift in Sources */,
+				4147056F2B67C8E5210FB2E7 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
