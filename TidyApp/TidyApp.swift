@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import Combine
+import os
 import TidyCore
 import TidyUI
 
@@ -17,6 +18,10 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
     private var inputMonitoringDetector: InputMonitoringDetector?
     private var permissionGuide: PermissionGuideWindow?
     private var cancellables = Set<AnyCancellable>()
+    private var guideShownLogged = false
+    private var prevAxStatus: AccessibilityPermissionStatus?
+    private var prevImStatus: InputMonitoringPermissionStatus?
+    private let permLog = OSLog(subsystem: "com.tidy.windowmanagement", category: "permission")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // MARK: - 权限检测与引导（F0）
@@ -41,7 +46,13 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
                 accessibilityStatus: permDetector.status,
                 inputMonitoringStatus: imDetector.status
             )
+            if !guideShownLogged {
+                os_log("tidy.permission event=permission_guide_shown", log: permLog, type: .default)
+                guideShownLogged = true
+            }
         }
+        prevAxStatus = permDetector.status
+        prevImStatus = imDetector.status
 
         // 订阅权限状态变化
         permDetector.statusPublisher
@@ -141,17 +152,33 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
         let axStatus = permDetector.status
         let imStatus = imDetector.status
 
+        // 追踪授权状态转换事件（FR-F0-005）
+        if let prev = prevAxStatus, prev == .denied, axStatus == .granted {
+            os_log("tidy.permission event=accessibility_granted", log: permLog, type: .default)
+        }
+        if let prev = prevImStatus, prev == .denied, imStatus == .granted {
+            os_log("tidy.permission event=input_monitoring_granted", log: permLog, type: .default)
+        }
+
         if needsPermissionGuide(accessibility: axStatus, inputMonitoring: imStatus) {
             guide.showGuide(
                 accessibilityStatus: axStatus,
                 inputMonitoringStatus: imStatus
             )
         } else {
+            // 检查是否从"需要引导"变为"全部授权"
+            let wasGuideNeeded = prevAxStatus == .denied || prevImStatus == .denied
+            if wasGuideNeeded {
+                os_log("tidy.permission event=all_permissions_granted", log: permLog, type: .default)
+            }
             // 全部已授权，延迟 1.5 秒关闭（让用户看到成功状态）
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 self?.permissionGuide?.closeGuide()
             }
         }
+
+        prevAxStatus = axStatus
+        prevImStatus = imStatus
     }
 }
 
