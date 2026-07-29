@@ -1,7 +1,7 @@
 # P0_技术探针 手动验证清单
 
-> 最后更新：2026-07-29 | 版本：v0.3
-> 文档状态：执行中（MV-P0-007、MV-P0-008 已验证）
+> 最后更新：2026-07-29 | 版本：v0.4
+> 文档状态：执行中（MV-P0-007/008 已验证，MV-P0-011/014/015 部分完成）
 > 阶段定位：准备阶段 artifacts，不参与 F 功能编号
 
 本文档汇总 P0_技术探针阶段所有需要手动验证的项，作为 XCUITest 自动化覆盖之外的人工证据载体。验证结果作为对应 AC 的判定依据。
@@ -194,8 +194,8 @@
 
 ### 2.6 AC-P0-011 排列时间达标（性能验证）
 
-| 验证 ID | MV-P0-011 | 状态 | 待验证 |
-|---------|-----------|------|--------|
+| 验证 ID | MV-P0-011 | 状态 | ⚠️ 部分完成 |
+|---------|-----------|------|------------|
 | **覆盖** | TC-P0-037、TC-P0-038、TC-P0-039 | **优先级** | 高（Exit Gate 硬门槛） |
 
 **前置条件**：
@@ -217,14 +217,25 @@
 
 **证据要求**：`os_log` 日志导出，统计表格（见 [performance-report.md](performance-report.md)）
 
-**实际结果**：`待填充`
-**判定**：`待填充`
+**实际结果**：
+- Finder 2 窗口正式 P95 测量完成（20 样本，3 warm-up）：
+  - P95 = 584ms ≤ 800ms ✅ PASS
+  - Min = 316ms, Max = 584ms, Mean = 419ms, P50 = 424ms
+  - select ok = 20/20, select FAIL = 0
+  - CSV: [perf-Finder-2.csv](perf-Finder-2.csv)
+- 其余 App × 窗口数：单次验证数据（见 [performance-report.md](performance-report.md) 第 3 节）
+  - 原生 App（Xcode/VS Code/Finder/Safari）2/5 窗口均 ≤ 800ms
+  - Xcode 9 窗口 883ms、VS Code 9 窗口 908ms 单次超门槛（⚠️ 需正式 P95 确认）
+  - Chrome 全部超门槛（已知 Electron 限制，不阻塞 P0）
+- 测量脚本：`scripts/measure-performance.sh`
+
+**判定**：⚠️ 条件性 PASS（原生 App 单次验证达标 + Finder 2 窗口正式 P95 达标；9 窗口与 Chrome 需 F0 正式测量）
 
 ---
 
 ### 2.7 AC-P0-014 Tier A 兼容性矩阵
 
-| 验证 ID | MV-P0-014 | 状态 | 待验证 |
+| 验证 ID | MV-P0-014 | 状态 | ✅ 已验证 |
 |---------|-----------|------|--------|
 | **覆盖** | TC-P0-046~050 | **优先级** | 高（Exit Gate 硬门槛） |
 
@@ -248,15 +259,22 @@
 
 **证据要求**：填写 [compatibility-matrix.md](compatibility-matrix.md) 与 [performance-report.md](performance-report.md)
 
-**实际结果**：`待填充`
-**判定**：`待填充`
+**实际结果**：
+- Tier A 5 App × 3 窗口数（2/5/9）单次验证全部完成
+- AXSetFrame 成功率 100%（零 FAIL）
+- 降级策略生效（VS Code/Finder 9 窗口枚举 8 个时正常处理）
+- 临时放大与恢复全部 PASS
+- Chrome 为已知 Electron 限制，不阻塞 P0 Exit Gate
+- 详见 [compatibility-matrix.md](compatibility-matrix.md)
+
+**判定**：✅ PASS
 
 ---
 
 ### 2.8 AC-P0-015 还原成功率
 
-| 验证 ID | MV-P0-015 | 状态 | 待验证 |
-|---------|-----------|------|--------|
+| 验证 ID | MV-P0-015 | 状态 | ⚠️ 部分完成 |
+|---------|-----------|------|------------|
 | **覆盖** | TC-P0-051、TC-P0-052 | **优先级** | 高（Exit Gate 硬门槛） |
 
 **前置条件**：
@@ -277,8 +295,12 @@
 
 **证据要求**：填写 [performance-report.md](performance-report.md) 第 5 节还原成功率表
 
-**实际结果**：`待填充`
-**判定**：`待填充`
+**实际结果**：
+- Finder 2 窗口：20 次正式测量，还原成功率 100%（20/20）
+- 其余 App × 窗口数：单次验证均还原成功
+- 详见 [performance-report.md](performance-report.md) 第 5 节
+
+**判定**：⚠️ 条件性 PASS（Finder 2 窗口 20 次正式验证 100%，其余单次验证 100%）
 
 ---
 
@@ -342,7 +364,7 @@
 | 参考机器 | MacBook Pro 14" 2021（M1 Pro）或同等 | arm64（Apple Silicon） |
 | macOS 版本 | macOS 12 Monterey 及以上 | macOS 13.7.8（Build 22H730） |
 | Xcode 版本 | 14.1+ | Xcode 14.1（Build 14B47b） |
-| Tidy 构建版本 | develop 分支最新提交 SHA | ab472b3（含 main.swift 修复） |
+| Tidy 构建版本 | develop 分支最新提交 SHA | 5d815ce（含兼容性矩阵验证） |
 | 验证人 | — | AI Agent + 用户视觉确认 |
 | 验证日期 | — | 2026-07-29 |
 
@@ -368,3 +390,4 @@
 | v0.1 | 2026-07-29 | 建立手动验证清单，整合 10 项手动验证项，覆盖 AC-P0-001/006/007/008/010/011/014/015/017 与 FR-P0-014；记录 XCUITest 平台限制（NSStatusItem 无法访问） |
 | v0.2 | 2026-07-29 | MV-P0-008 验证通过；记录 main.swift 入口点修复；填写环境基线 |
 | v0.3 | 2026-07-29 | MV-P0-007 验证通过；记录 collectionBehavior 修复（移除 .canJoinAllSpaces） |
+| v0.4 | 2026-07-29 | MV-P0-011 部分完成（Finder 2 窗口正式 P95=584ms ✅）；MV-P0-014 ✅ PASS；MV-P0-015 部分完成（Finder 2 窗口 20 次 100%） |

@@ -14,7 +14,7 @@ settings:
   base:
     SWIFT_VERSION: "5.7"
     CODE_SIGN_STYLE: Automatic
-    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_IDENTITY: "Apple Development"
     ONLY_ACTIVE_ARCH: YES
 
 targets:
@@ -33,6 +33,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.tidy.windowmanagement
         PRODUCT_NAME: Tidy
         INFOPLIST_FILE: TidyApp/Info.plist
+        DEVELOPMENT_TEAM: VQLBN4DB8C
+        CODE_SIGN_IDENTITY: "Apple Development"
     dependencies:
       - package: Tidy
         product: TidyCore
