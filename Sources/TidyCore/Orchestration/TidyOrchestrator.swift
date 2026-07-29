@@ -219,12 +219,19 @@ public final class TidyOrchestrator: TidyOrchestrating {
     ///
     /// 根据架构契约 INV-006：仅在 .selecting 状态下可执行。
     public func selectWindow(label: Character) {
-        guard state == .selecting else { return }
-
-        guard let cell = layoutCells.first(where: { $0.label == label }) else {
+        guard state == .selecting else {
+            os_log("tidy.debug select skipped: state", log: perfLog, type: .default)
             return
         }
-        guard cell.windowIndex < arrangedWindows.count else { return }
+
+        guard let cell = layoutCells.first(where: { $0.label == label }) else {
+            os_log("tidy.debug select skipped: label", log: perfLog, type: .default)
+            return
+        }
+        guard cell.windowIndex < arrangedWindows.count else {
+            os_log("tidy.debug select skipped: range", log: perfLog, type: .default)
+            return
+        }
 
         let window = arrangedWindows[cell.windowIndex]
         let screen = displayCoordinator.screenContaining(
@@ -233,13 +240,41 @@ public final class TidyOrchestrator: TidyOrchestrating {
         )
 
         let maximizedFrame = screen.frame.insetBy(dx: 4, dy: 4)
-        windowManipulator.setFrame(maximizedFrame, for: window)
+        let result = windowManipulator.setFrame(maximizedFrame, for: window)
+        logSelectResult(label: label, window: window, result: result)
 
         // 隐藏覆盖层（对应设计文档 3. 数据流第 259 行）
         overlay?.hideOverlay()
 
         state = .working
         eventTapManager.stopTap()
+    }
+
+    /// 记录 selectWindow 结果（临时诊断日志，P0 探针阶段）
+    private func logSelectResult(
+        label: Character,
+        window: WindowInfo,
+        result: WindowOperationResult
+    ) {
+        switch result {
+        case .success:
+            os_log(
+                "tidy.debug select ok label=%{public}@ wid=%llu",
+                log: perfLog,
+                type: .default,
+                String(label),
+                window.id
+            )
+        case .failed(_, let reason):
+            os_log(
+                "tidy.debug select FAIL label=%{public}@ wid=%llu reason=%{public}@",
+                log: perfLog,
+                type: .default,
+                String(label),
+                window.id,
+                reason
+            )
+        }
     }
 
     /// 还原所有窗口并回到空闲状态
@@ -297,19 +332,42 @@ public final class TidyOrchestrator: TidyOrchestrating {
     ///
     /// 根据架构契约 INV-007：输入拦截仅在编排选择阶段启用。
     private func startKeyEventTap() {
-        eventTapManager.startTap { [weak self] event in
+        let success = eventTapManager.startTap { [weak self] event in
             self?.handleKeyEvent(event) ?? false
         }
+        os_log(
+            "tidy.debug EventTap.start success=%d isActive=%d",
+            log: perfLog,
+            type: .default,
+            success,
+            eventTapManager.isActive ? 1 : 0
+        )
     }
 
     /// 处理拦截到的键盘事件
     private func handleKeyEvent(_ event: CGEvent) -> Bool {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        // A-Z 键码范围：0x00(A) - 0x19(Z)
-        guard keyCode >= 0 && keyCode <= 25 else { return false }
-        let scalarValue = Int(UnicodeScalar("a").value) + Int(keyCode)
-        guard let scalar = UnicodeScalar(scalarValue) else { return false }
-        let label = Character(scalar)
+        os_log(
+            "tidy.debug EventTap.keyEvent keyCode=%lld",
+            log: perfLog,
+            type: .default,
+            keyCode
+        )
+        // Mac QWERTY 键盘 keyCode → 字母映射（非线性，不能简单用 97+keyCode）
+        let keyCodeToLetter: [Int64: Character] = [
+            0: "a", 11: "b", 8: "c", 2: "d", 14: "e", 3: "f",
+            5: "g", 4: "h", 34: "i", 38: "j", 40: "k", 37: "l",
+            46: "m", 45: "n", 31: "o", 35: "p", 12: "q", 15: "r",
+            1: "s", 17: "t", 32: "u", 9: "v", 13: "w", 7: "x",
+            16: "y", 6: "z"
+        ]
+        guard let label = keyCodeToLetter[keyCode] else { return false }
+        os_log(
+            "tidy.debug EventTap.select label=%{public}@",
+            log: perfLog,
+            type: .default,
+            String(label)
+        )
         selectWindow(label: label)
         return true
     }
