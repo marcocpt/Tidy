@@ -95,7 +95,9 @@ public final class WindowEnumerator: WindowEnumerating {
     }
 
     private func matchAXWindow(from axWindows: [AXUIElement], frame: CGRect) -> AXUIElement {
-        axWindows.first { axWindow in
+        // CGWindowList 和 AX 都使用顶部原点全局坐标系（Y 向下），坐标值相同。
+        // 通过 frame 近似匹配（容差 2 points）关联 CGWindowID 与 AXUIElement。
+        return axWindows.first { axWindow in
             guard let position = axWindow.positionValue,
                   let size = axWindow.sizeValue
             else { return false }
@@ -129,8 +131,11 @@ private extension AXUIElement {
             kAXPositionAttribute as CFString,
             &value
         )
-        guard result == .success else { return nil }
-        return value as? CGPoint
+        guard result == .success, let axValue = value else { return nil }
+        // AXUIElementCopyAttributeValue 返回 AXValue 对象，不是直接 CGPoint
+        var point = CGPoint.zero
+        guard AXValueGetValue(axValue as! AXValue, .cgPoint, &point) else { return nil }
+        return point
     }
 
     var sizeValue: CGSize? {
@@ -140,7 +145,9 @@ private extension AXUIElement {
             kAXSizeAttribute as CFString,
             &value
         )
-        guard result == .success else { return nil }
-        return value as? CGSize
+        guard result == .success, let axValue = value else { return nil }
+        var size = CGSize.zero
+        guard AXValueGetValue(axValue as! AXValue, .cgSize, &size) else { return nil }
+        return size
     }
 }

@@ -32,10 +32,12 @@ public final class WindowManipulator: WindowManipulating {
     public init() {}
 
     public func setFrame(_ frame: CGRect, for window: WindowInfo) -> WindowOperationResult {
-        let position = CGPoint(x: frame.origin.x, y: frame.origin.y)
-        let size = CGSize(width: frame.width, height: frame.height)
+        var position = CGPoint(x: frame.origin.x, y: frame.origin.y)
+        var size = CGSize(width: frame.width, height: frame.height)
 
-        let positionValue = position as CFTypeRef
+        guard let positionValue = AXValueCreate(.cgPoint, &position) else {
+            return .failed(windowID: window.id, reason: "创建 position AXValue 失败")
+        }
         let posResult = AXUIElementSetAttributeValue(
             window.axRef,
             kAXPositionAttribute as CFString,
@@ -46,7 +48,9 @@ public final class WindowManipulator: WindowManipulating {
             return .failed(windowID: window.id, reason: "设置位置失败: \(posResult.rawValue)")
         }
 
-        let sizeValue = size as CFTypeRef
+        guard let sizeValue = AXValueCreate(.cgSize, &size) else {
+            return .failed(windowID: window.id, reason: "创建 size AXValue 失败")
+        }
         let sizeResult = AXUIElementSetAttributeValue(
             window.axRef,
             kAXSizeAttribute as CFString,
@@ -69,17 +73,23 @@ public final class WindowManipulator: WindowManipulating {
             &value
         )
 
-        guard result == .success, value != nil else { return nil }
+        guard result == .success, let axValue = value else { return nil }
 
-        let axRef = unsafeBitCast(value, to: AXUIElement.self)
+        let axRef = axValue as! AXUIElement
 
-        var positionValue: AnyObject?
-        AXUIElementCopyAttributeValue(axRef, kAXPositionAttribute as CFString, &positionValue)
-        let position = positionValue as? CGPoint ?? .zero
+        var position: CGPoint = .zero
+        var posValue: AnyObject?
+        if AXUIElementCopyAttributeValue(axRef, kAXPositionAttribute as CFString, &posValue) == .success,
+           let axPos = posValue {
+            AXValueGetValue(axPos as! AXValue, .cgPoint, &position)
+        }
 
+        var size: CGSize = .zero
         var sizeValue: AnyObject?
-        AXUIElementCopyAttributeValue(axRef, kAXSizeAttribute as CFString, &sizeValue)
-        let size = sizeValue as? CGSize ?? .zero
+        if AXUIElementCopyAttributeValue(axRef, kAXSizeAttribute as CFString, &sizeValue) == .success,
+           let axSize = sizeValue {
+            AXValueGetValue(axSize as! AXValue, .cgSize, &size)
+        }
 
         let frame = CGRect(origin: position, size: size)
 
