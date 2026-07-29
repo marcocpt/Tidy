@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -26,7 +26,7 @@
 
 /* Begin PBXFileReference section */
 		0427B6E8CA6CCAD998FB9DE0 /* TidyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidyApp.swift; sourceTree = "<group>"; };
-		2F73889B25E8E709D382AEED /* TidyApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TidyApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2F73889B25E8E709D382AEED /* Tidy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tidy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3DB2BA2430EC159C297721B9 /* TidyAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TidyAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3E47974155BA10E1B960605F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		99DE04AF3B10CA3240C3C045 /* TidyAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidyAppUITests.swift; sourceTree = "<group>"; };
@@ -50,7 +50,7 @@
 		08C44E3419440CBFB6B8D3B0 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2F73889B25E8E709D382AEED /* TidyApp.app */,
+				2F73889B25E8E709D382AEED /* Tidy.app */,
 				3DB2BA2430EC159C297721B9 /* TidyAppUITests.xctest */,
 			);
 			name = Products;
@@ -128,7 +128,7 @@
 				DAC70CCD5CE526E4E81234F0 /* TidyUI */,
 			);
 			productName = TidyApp;
-			productReference = 2F73889B25E8E709D382AEED /* TidyApp.app */;
+			productReference = 2F73889B25E8E709D382AEED /* Tidy.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -211,6 +211,7 @@
 		1D5F17B143EB53297B8C094F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEVELOPMENT_TEAM = VQLBN4DB8C;
 				INFOPLIST_FILE = TidyApp/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tidy.windowmanagement;
@@ -245,6 +246,7 @@
 		B49BCF03152E3D7ED713D503 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEVELOPMENT_TEAM = VQLBN4DB8C;
 				INFOPLIST_FILE = TidyApp/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tidy.windowmanagement;
