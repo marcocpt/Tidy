@@ -90,7 +90,12 @@ public protocol TidyOrchestrating {
 /// 根据架构契约 INV-001：核心逻辑层永不依赖 UI 框架。
 public final class TidyOrchestrator: TidyOrchestrating {
     /// 当前编排状态
-    public private(set) var state: TidyState = .idle
+    public private(set) var state: TidyState = .idle {
+        didSet { onStateChange?(state) }
+    }
+
+    /// 状态变化回调（F0.1：状态栏图标联动）
+    public var onStateChange: ((TidyState) -> Void)?
 
     /// 前台 App 的 PID，由 App 层设置（需要 AppKit 访问 NSWorkspace）
     ///

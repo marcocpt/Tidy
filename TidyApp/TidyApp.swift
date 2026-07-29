@@ -88,7 +88,7 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
         )
         self.orchestrator = orchestrator
 
-        // MARK: - 状态栏
+        // MARK: - 状态栏（F0.1：3 状态 + 3 菜单项）
 
         let statusManager = StatusItemManager()
         statusManager.setup(title: "T", menuItems: [
@@ -96,11 +96,25 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
                 self?.toggleOrchestration()
             }),
             StatusMenuItem.separator(),
+            StatusMenuItem(title: "权限设置...", action: { [weak self] in
+                self?.openPermissionSettings()
+            }),
+            StatusMenuItem.separator(),
             StatusMenuItem(title: "退出", action: {
                 NSApplication.shared.terminate(nil)
             })
         ])
         self.statusItemManager = statusManager
+
+        // 状态栏图标联动：编排状态变化时更新
+        orchestrator.onStateChange = { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.updateStatusBarIcon()
+            }
+        }
+
+        // 初始化状态栏图标
+        updateStatusBarIcon()
 
         // MARK: - 覆盖层（注入到 orchestrator，跨层适配 OverlayShowing）
 
@@ -179,6 +193,35 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
 
         prevAxStatus = axStatus
         prevImStatus = imStatus
+        updateStatusBarIcon()
+    }
+
+    // MARK: - 状态栏图标联动（F0.1）
+
+    /// 根据权限和编排状态更新状态栏图标
+    private func updateStatusBarIcon() {
+        guard let permDetector = permissionDetector,
+              let imDetector = inputMonitoringDetector,
+              let statusManager = statusItemManager else { return }
+
+        if permDetector.status == .denied || imDetector.status == .denied {
+            statusManager.updateTitle("!")
+        } else if let orch = orchestrator, orch.state != .idle {
+            statusManager.updateTitle("●")
+        } else {
+            statusManager.updateTitle("T")
+        }
+    }
+
+    /// 打开权限设置（菜单项回调）
+    private func openPermissionSettings() {
+        guard let permDetector = permissionDetector,
+              let imDetector = inputMonitoringDetector,
+              let guide = permissionGuide else { return }
+        guide.showGuide(
+            accessibilityStatus: permDetector.status,
+            inputMonitoringStatus: imDetector.status
+        )
     }
 }
 
