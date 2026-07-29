@@ -134,6 +134,7 @@ private extension AXUIElement {
         guard result == .success, let axValue = value else { return nil }
         // AXUIElementCopyAttributeValue 返回 AXValue 对象，不是直接 CGPoint
         var point = CGPoint.zero
+        // swiftlint:disable:next force_cast
         guard AXValueGetValue(axValue as! AXValue, .cgPoint, &point) else { return nil }
         return point
     }
@@ -147,6 +148,7 @@ private extension AXUIElement {
         )
         guard result == .success, let axValue = value else { return nil }
         var size = CGSize.zero
+        // swiftlint:disable:next force_cast
         guard AXValueGetValue(axValue as! AXValue, .cgSize, &size) else { return nil }
         return size
     }

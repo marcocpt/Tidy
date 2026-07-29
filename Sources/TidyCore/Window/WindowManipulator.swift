@@ -75,12 +75,14 @@ public final class WindowManipulator: WindowManipulating {
 
         guard result == .success, let axValue = value else { return nil }
 
+        // swiftlint:disable:next force_cast
         let axRef = axValue as! AXUIElement
 
         var position: CGPoint = .zero
         var posValue: AnyObject?
         if AXUIElementCopyAttributeValue(axRef, kAXPositionAttribute as CFString, &posValue) == .success,
            let axPos = posValue {
+            // swiftlint:disable:next force_cast
             AXValueGetValue(axPos as! AXValue, .cgPoint, &position)
         }
 
@@ -88,6 +90,7 @@ public final class WindowManipulator: WindowManipulating {
         var sizeValue: AnyObject?
         if AXUIElementCopyAttributeValue(axRef, kAXSizeAttribute as CFString, &sizeValue) == .success,
            let axSize = sizeValue {
+            // swiftlint:disable:next force_cast
             AXValueGetValue(axSize as! AXValue, .cgSize, &size)
         }
 
