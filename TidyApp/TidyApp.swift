@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import Combine
 import TidyCore
 import TidyUI
 
@@ -12,8 +13,49 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
     private var orchestrator: TidyOrchestrator?
     private var statusItemManager: StatusItemManager?
     private var overlayPanel: OverlayPanel?
+    private var permissionDetector: PermissionDetector?
+    private var inputMonitoringDetector: InputMonitoringDetector?
+    private var permissionGuide: PermissionGuideWindow?
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // MARK: - 权限检测与引导（F0）
+
+        let permDetector = PermissionDetector()
+        let imDetector = InputMonitoringDetector()
+        self.permissionDetector = permDetector
+        self.inputMonitoringDetector = imDetector
+
+        permDetector.startMonitoring()
+        imDetector.startMonitoring()
+
+        let guideWindow = PermissionGuideWindow()
+        self.permissionGuide = guideWindow
+
+        // 检查是否需要显示权限引导
+        if needsPermissionGuide(
+            accessibility: permDetector.status,
+            inputMonitoring: imDetector.status
+        ) {
+            guideWindow.showGuide(
+                accessibilityStatus: permDetector.status,
+                inputMonitoringStatus: imDetector.status
+            )
+        }
+
+        // 订阅权限状态变化
+        permDetector.statusPublisher
+            .sink { [weak self] _ in
+                self?.handlePermissionChange()
+            }
+            .store(in: &cancellables)
+
+        imDetector.statusPublisher
+            .sink { [weak self] _ in
+                self?.handlePermissionChange()
+            }
+            .store(in: &cancellables)
+
         // MARK: - 构建依赖图
 
         let windowEnumerator = WindowEnumerator()
@@ -76,6 +118,40 @@ final class TidyAppDelegate: NSObject, NSApplicationDelegate {
         orchestrator.frontmostPID = frontmost?.processIdentifier ?? 0
         orchestrator.frontmostBundleID = frontmost?.bundleIdentifier ?? ""
         orchestrator.toggle()
+    }
+
+    // MARK: - 权限引导（F0）
+
+    /// 判断是否需要显示权限引导窗口
+    private func needsPermissionGuide(
+        accessibility: AccessibilityPermissionStatus,
+        inputMonitoring: InputMonitoringPermissionStatus
+    ) -> Bool {
+        if accessibility == .denied { return true }
+        if inputMonitoring == .denied { return true }
+        return false
+    }
+
+    /// 处理权限状态变化
+    private func handlePermissionChange() {
+        guard let permDetector = permissionDetector,
+              let imDetector = inputMonitoringDetector,
+              let guide = permissionGuide else { return }
+
+        let axStatus = permDetector.status
+        let imStatus = imDetector.status
+
+        if needsPermissionGuide(accessibility: axStatus, inputMonitoring: imStatus) {
+            guide.showGuide(
+                accessibilityStatus: axStatus,
+                inputMonitoringStatus: imStatus
+            )
+        } else {
+            // 全部已授权，延迟 1.5 秒关闭（让用户看到成功状态）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                self?.permissionGuide?.closeGuide()
+            }
+        }
     }
 }
 
