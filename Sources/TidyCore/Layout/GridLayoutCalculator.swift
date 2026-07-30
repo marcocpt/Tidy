@@ -83,7 +83,10 @@ public protocol GridLayoutCalculating {
 
 /// 自适应网格布局计算器。
 ///
-/// 根据窗口数量选择最优行列比，将屏幕均分为网格单元格，
+/// 布局规则：
+/// - 偶数窗口：标准网格（2→1x2, 4→2x2, 6→2x3）
+/// - 奇数窗口（≥3）：a 占左侧全高，剩余窗口在右侧 2 行网格
+///   - 3→a 半 + 右 2x1, 5→a 1/3 + 右 2x2, 7→a 1/4 + 右 2x3
 /// 每个单元格内缩 8pt 作为窗口目标矩形。
 /// 纯 Foundation 实现，不依赖 AppKit（INV-001）。
 public final class GridLayoutCalculator: GridLayoutCalculating {
@@ -92,21 +95,46 @@ public final class GridLayoutCalculator: GridLayoutCalculating {
 
     /// 创建网格布局计算器实例
     public init() {}
+
     public func calculateLayout(windowCount: Int, screen: ScreenInfo) -> [LayoutCell] {
         let capped = min(windowCount, 26)
         guard capped > 0 else { return [] }
 
-        let (rows, cols) = gridDimensions(count: capped)
+        let padding: CGFloat = 8.0
+
+        // 单窗口：占满全屏
+        if capped == 1 {
+            let frame = screen.frame.insetBy(dx: padding, dy: padding)
+            return [LayoutCell(label: "a", frame: frame, windowIndex: 0)]
+        }
+
+        // 偶数窗口：标准网格
+        if capped % 2 == 0 {
+            return standardGrid(count: capped, screen: screen, padding: padding)
+        }
+
+        // 奇数窗口（3, 5, 7...）：a 占左侧全高，剩余窗口在右侧 2 行网格
+        return splitLayout(count: capped, screen: screen, padding: padding)
+    }
+
+    // MARK: - 标准网格（偶数窗口）
+
+    /// 标准网格布局：均匀划分行列
+    private func standardGrid(
+        count: Int,
+        screen: ScreenInfo,
+        padding: CGFloat
+    ) -> [LayoutCell] {
+        let (rows, cols) = evenGridDimensions(count: count)
         let cellWidth = screen.frame.width / CGFloat(cols)
         let cellHeight = screen.frame.height / CGFloat(rows)
-        let padding: CGFloat = 8.0
 
         var cells: [LayoutCell] = []
         var index = 0
 
         for row in 0..<rows {
             for col in 0..<cols {
-                guard index < capped else { break }
+                guard index < count else { break }
                 let x = screen.frame.origin.x + CGFloat(col) * cellWidth + padding
                 let y = screen.frame.origin.y + CGFloat(row) * cellHeight + padding
                 let width = cellWidth - padding * 2
@@ -121,35 +149,66 @@ public final class GridLayoutCalculator: GridLayoutCalculating {
         return cells
     }
 
-    // MARK: - 私有辅助
-
-    /// 计算最优网格行列数，使空单元格最少
-    ///
-    /// 策略：窗口数 1 为单格；2-3 用 2 列；4-6 在 2-3 行列中选最优；
-    /// 7+ 用 ceil(sqrt(n)) 正方网格。
-    private func gridDimensions(count: Int) -> (rows: Int, cols: Int) {
-        if count <= 1 { return (1, 1) }
+    /// 偶数窗口的网格行列数
+    /// - 2→(1,2), 4→(2,2), 6→(2,3), 8→(2,4), 10+→接近正方形
+    private func evenGridDimensions(count: Int) -> (rows: Int, cols: Int) {
         if count == 2 { return (1, 2) }
-        if count == 3 { return (2, 2) }
+        if count == 4 { return (2, 2) }
+        if count == 6 { return (2, 3) }
+        if count == 8 { return (2, 4) }
+        // 10+: 尽量接近正方形
+        let cols = Int(ceil(sqrt(Double(count))))
+        let rows = Int(ceil(Double(count) / Double(cols)))
+        return (rows, cols)
+    }
 
-        if count <= 6 {
-            var best = (rows: 3, cols: 3, empty: 9 - count)
-            for rows in 2...3 {
-                for cols in 2...3 {
-                    let total = rows * cols
-                    if total >= count {
-                        let empty = total - count
-                        if empty < best.empty
-                            || (empty == best.empty && rows < best.rows) {
-                            best = (rows, cols, empty)
-                        }
-                    }
-                }
+    // MARK: - 分割布局（奇数窗口 ≥3）
+
+    /// a 占左侧全高，剩余窗口在右侧 2 行网格
+    /// - 3→a 占 1/2 + 右侧 2x1
+    /// - 5→a 占 1/3 + 右侧 2x2
+    /// - 7→a 占 1/4 + 右侧 2x3
+    private func splitLayout(
+        count: Int,
+        screen: ScreenInfo,
+        padding: CGFloat
+    ) -> [LayoutCell] {
+        let remaining = count - 1
+        let rightCols = remaining / 2
+        let totalCols = 1 + rightCols
+
+        let leftWidth = screen.frame.width / CGFloat(totalCols)
+        let rightWidth = screen.frame.width - leftWidth
+        let rightCellWidth = rightWidth / CGFloat(rightCols)
+        let rightCellHeight = screen.frame.height / 2
+
+        var cells: [LayoutCell] = []
+
+        // a 窗口：左侧全高
+        let aFrame = CGRect(
+            x: screen.frame.origin.x + padding,
+            y: screen.frame.origin.y + padding,
+            width: leftWidth - padding * 2,
+            height: screen.frame.height - padding * 2
+        )
+        cells.append(LayoutCell(label: "a", frame: aFrame, windowIndex: 0))
+
+        // 剩余窗口：右侧 2 行网格
+        var index = 1
+        for row in 0..<2 {
+            for col in 0..<rightCols {
+                guard index < count else { break }
+                let x = screen.frame.origin.x + leftWidth + CGFloat(col) * rightCellWidth + padding
+                let y = screen.frame.origin.y + CGFloat(row) * rightCellHeight + padding
+                let width = rightCellWidth - padding * 2
+                let height = rightCellHeight - padding * 2
+                let label = Self.labels[index]
+                let frame = CGRect(x: x, y: y, width: width, height: height)
+                cells.append(LayoutCell(label: label, frame: frame, windowIndex: index))
+                index += 1
             }
-            return (best.rows, best.cols)
         }
 
-        let side = Int(ceil(sqrt(Double(count))))
-        return (side, side)
+        return cells
     }
 }

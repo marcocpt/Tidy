@@ -60,7 +60,7 @@ public final class TidyOrchestrator: TidyOrchestrating {
     private weak var overlay: OverlayShowing?
 
     /// 性能日志（对应 P0_02 1.6 节性能埋点要求）
-    private let perfLog = OSLog(
+    let perfLog = OSLog(
         subsystem: "com.tidy.windowmanagement",
         category: .pointsOfInterest
     )
@@ -70,6 +70,12 @@ public final class TidyOrchestrator: TidyOrchestrating {
 
     /// 超时时间（默认 30 秒）
     private let selectTimeoutInterval: TimeInterval = 30.0
+
+    /// 窗口选择进行中标志（防止延迟期间重复触发）
+    private var isSelectingWindow = false
+
+    /// 激活后等待时间（让窗口前置生效再放大）
+    private let activateSettleInterval: TimeInterval = 0.25
 
     /// 创建编排控制器
     /// - Parameters:
@@ -169,9 +175,14 @@ public final class TidyOrchestrator: TidyOrchestrating {
     /// 按字母标签选择窗口并最大化
     ///
     /// 根据架构契约 INV-006：仅在 .selecting 状态下可执行。
+    /// F1: 先激活窗口，等待激活生效后再放大（用户反馈：先激活再放大）
     public func selectWindow(label: Character) {
         guard state == .selecting else {
             os_log("tidy.debug select skipped: state", log: perfLog, type: .default)
+            return
+        }
+        guard !isSelectingWindow else {
+            os_log("tidy.debug select skipped: in-progress", log: perfLog, type: .default)
             return
         }
 
@@ -183,6 +194,8 @@ public final class TidyOrchestrator: TidyOrchestrating {
             os_log("tidy.debug select skipped: range", log: perfLog, type: .default)
             return
         }
+
+        isSelectingWindow = true
 
         let window = arrangedWindows[cell.windowIndex]
         let screen = displayCoordinator.screenContaining(
@@ -196,9 +209,28 @@ public final class TidyOrchestrator: TidyOrchestrating {
         eventTapManager.stopTap()
 
         // F1: 先激活窗口（升起 + main + focused），让窗口前置
-        // 再 setFrame 调整大小，避免 setFrame 后窗口 z-order 未改变导致遮挡
         let activateResult = windowManipulator.activateWindow(window)
         logActivateResult(label: label, window: window, result: activateResult)
+
+        // F1: 延迟放大，确保窗口已激活成为 frontmost
+        // CGEvent 模拟点击是异步的，需要时间让系统处理窗口前置
+        DispatchQueue.main.asyncAfter(deadline: .now() + activateSettleInterval) { [weak self] in
+            self?.maximizeAfterActivate(label: label, window: window, screen: screen)
+        }
+    }
+
+    /// 激活生效后放大窗口并完成选择流程
+    private func maximizeAfterActivate(
+        label: Character,
+        window: WindowInfo,
+        screen: ScreenInfo
+    ) {
+        defer { isSelectingWindow = false }
+
+        guard state == .selecting else {
+            os_log("tidy.debug maximize skipped: state changed", log: perfLog, type: .default)
+            return
+        }
 
         let maximizedFrame = screen.frame.insetBy(dx: 4, dy: 4)
         let result = windowManipulator.setFrame(maximizedFrame, for: window)
@@ -208,55 +240,6 @@ public final class TidyOrchestrator: TidyOrchestrating {
         overlay?.hideOverlay()
 
         state = .working
-    }
-
-    /// 记录 activateWindow 结果（F1 诊断日志）
-    private func logActivateResult(
-        label: Character,
-        window: WindowInfo,
-        result: WindowOperationResult
-    ) {
-        switch result {
-        case .success:
-            os_log(
-                "tidy.activate ok wid=%llu label=%{public}@",
-                log: perfLog, type: .default,
-                window.id, String(label)
-            )
-        case .failed(_, let reason):
-            os_log(
-                "tidy.activate FAIL wid=%llu reason=%{public}@",
-                log: perfLog, type: .default,
-                window.id, reason
-            )
-        }
-    }
-
-    /// 记录 selectWindow 结果（临时诊断日志，P0 探针阶段）
-    private func logSelectResult(
-        label: Character,
-        window: WindowInfo,
-        result: WindowOperationResult
-    ) {
-        switch result {
-        case .success:
-            os_log(
-                "tidy.debug select ok label=%{public}@ wid=%llu",
-                log: perfLog,
-                type: .default,
-                String(label),
-                window.id
-            )
-        case .failed(_, let reason):
-            os_log(
-                "tidy.debug select FAIL label=%{public}@ wid=%llu reason=%{public}@",
-                log: perfLog,
-                type: .default,
-                String(label),
-                window.id,
-                reason
-            )
-        }
     }
 
     /// 还原所有窗口并回到空闲状态
@@ -279,6 +262,7 @@ public final class TidyOrchestrator: TidyOrchestrating {
         arrangedWindows = []
         layoutCells = []
         targetScreenFrame = .zero
+        isSelectingWindow = false
         state = .idle
 
         eventTapManager.stopTap()
