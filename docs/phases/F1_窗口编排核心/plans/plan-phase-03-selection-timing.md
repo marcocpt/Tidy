@@ -89,14 +89,7 @@
 - 若逻辑完整，本 Task 为验证性测试，无需代码变更
 - 运行：`swift test` → 预期通过
 
-### Task 3.5: 确认放大无内缩（验证）
-
-- 文件：`Sources/TidyCore/Orchestration/TidyOrchestrator.swift` maximizeAfterActivate
-- 确认 Phase 1 Task 1.5 已将 `screen.frame.insetBy(dx: 4, dy: 4)` 改为 `screen.frame`
-- 新增单元测试 `testMaximizeUsesFullScreenFrame()`：断言 setFrame 被调用时传入的 frame == screen.frame（无 insetBy）
-- 运行：`swift test` → 预期通过
-
-### Task 3.6: 激活失败后状态一致性测试
+### Task 3.5: 激活失败后状态一致性测试
 
 - 新增 `testStateConsistentAfterActivateFailure()`：
   - 激活失败后，selecting 状态保持
@@ -104,6 +97,8 @@
   - EventTap 重启（可再次拦截按键）
   - 用户按其他字母仍能正常选择
 - 运行：`swift test` → 预期通过
+
+> **注**：放大无内缩验证已移至 Phase 1 Task 1.11（与放大逻辑变更同 Phase）。
 
 ## 6. 验证命令
 
@@ -123,7 +118,7 @@ swiftlint lint --strict
 ## 8. 提交边界与回滚
 
 - 提交 1：Task 3.1-3.2（激活失败处理）→ `feat(tidycore): 选择时序激活失败处理`
-- 提交 2：Task 3.3-3.6（250ms 按键忽略验证 + 放大无内缩验证 + 状态一致性）→ `test(tidycore): 选择时序 250ms 按键忽略与状态一致性测试`
+- 提交 2：Task 3.3-3.5（250ms 按键忽略验证 + 状态一致性）→ `test(tidycore): 选择时序 250ms 按键忽略与状态一致性测试`
 
 回滚：每个提交独立可回滚。
 
@@ -131,12 +126,12 @@ swiftlint lint --strict
 
 | AC | Task | Test |
 |----|------|------|
-| AC-F1-006 激活失败 | 3.1-3.2, 3.6 | TC-F1-006-03 |
-| AC-F1-001 核心闭环（部分） | 3.3-3.5 | TC-F1-001-03, TC-F1-006-04 |
+| AC-F1-006 激活失败 | 3.1-3.2, 3.5 | TC-F1-006-03 |
+| AC-F1-001 核心闭环（部分） | 3.3-3.4 | TC-F1-001-03, TC-F1-006-04 |
 
 ## 10. Local Gate
 
-- [ ] 所有 Task 3.1-3.6 完成
+- [ ] 所有 Task 3.1-3.5 完成
 - [ ] `swift test` 全绿
 - [ ] `swiftlint lint --strict` 0 violations
 - [ ] `swift build` 成功

@@ -75,7 +75,10 @@
 
 - 文件：`Sources/TidyCore/Orchestration/TidyOrchestrator.swift` activate()
 - 在 `positionSnapshot = windowManipulator.snapshotWindows(windows)` 前按 z-order 降序排序 windows
-- z-order 来源：CGWindowList 已按 z-order 降序返回（P0 WindowEnumerator 应已支持，若未支持需补充 layer 字段）
+- **z-order 来源验证**：P0 `WindowEnumerator.enumerateVisibleWindows` 使用 `CGWindowListCopyWindowInfo(.optionOnScreenOnly, ...)`，根据 Apple 文档默认按 z-order 降序返回（最前窗口在前）。P0 代码未显式排序，依赖此默认行为。
+- **本 Task 工作量**：
+  - 若验证 CGWindowList 默认行为可靠 → 仅需在 activate() 中添加注释说明 z-order 来源，无需代码变更
+  - 若需显式排序 → 在 activate() 中 `let windows = windowEnumerator.enumerateVisibleWindows(forPID: frontmostPID)` 后保持原顺序（已是 z-order 降序）
 - 运行：`swift test --filter TidyOrchestratorTests` → 预期通过
 
 ### Task 1.8: 10+ 截断单元测试（红）
@@ -101,6 +104,13 @@
 - 删除 `// 10+: 尽量接近正方形` 分支（10+ 由调用方截断，不会传入 calculateLayout）
 - 添加 `precondition(capped <= 9, "GridLayoutCalculator only handles 1-9 windows; caller must truncate")`
 - 运行：`swift test` → 预期通过
+
+### Task 1.11: 放大无内缩验证（从 Phase 3 移入）
+
+- 文件：`Tests/TidyCoreTests/TidyOrchestratorTests.swift`
+- 新增 `testMaximizeUsesFullScreenFrame()`：mock setFrame 调用，断言传入的 frame == screen.frame（无 insetBy）
+- 验证 Phase 1 Task 1.5 已将 `screen.frame.insetBy(dx: 4, dy: 4)` 改为 `screen.frame`
+- 运行：`swift test --filter TidyOrchestratorTests` → 预期通过
 
 ## 6. 验证命令
 
@@ -136,12 +146,12 @@ swiftlint lint --strict
 
 | AC | Task | Test |
 |----|------|------|
-| AC-F1-002 布局规则 | 1.1-1.4, 1.6-1.7 | TC-F1-002-01/02/03/04/05 |
+| AC-F1-002 布局规则 | 1.1-1.4, 1.6-1.7, 1.11 | TC-F1-002-01/02/03/04/05 |
 | AC-F1-003 边界窗口数 | 1.8-1.10 | TC-F1-003-01/02 |
 
 ## 10. Local Gate
 
-- [ ] 所有 Task 1.1-1.10 完成
+- [ ] 所有 Task 1.1-1.11 完成
 - [ ] `swift test` 全绿
 - [ ] `swiftlint lint --strict` 0 violations
 - [ ] `swift build` 成功

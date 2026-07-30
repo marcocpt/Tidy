@@ -14,6 +14,8 @@
 - 设定 NFR 5.1 性能门槛（基于 P0 baseline + F1 实测）
 - 修复兼容性问题（若有）
 
+**Tier B 测试性质说明**：F1_03 TC-F1-006-05 提到 Tier B App（如系统设置）用于异常恢复测试。Tier B 测试为**参考性测试**，记录结果但**不阻塞 F1 Exit Gate**（按路线图 Tier B 定义：必须测试、必须记录；允许 PASS / LIMITED / LABEL_ONLY / UNSUPPORTED）。若 Tier B 发现 Blocker 级问题，记录为已知缺陷，评估是否影响 v0.1 Pilot。
+
 ## 2. Architecture / Tech Stack
 
 - 无代码变更（纯验证 Phase）
@@ -72,12 +74,16 @@
 - 重复 Task 6.2 流程
 - 关注：Chrome 多进程架构可能影响窗口枚举
 
-### Task 6.7: 性能基线测量
+### Task 6.7: 性能基线测量 + AX 失败率统计
 
 - 对每个 Tier A App × N（2/5/9）执行 100 次触发热键
 - 收集 os_log 性能埋点：`tidy.performance app=<bundle_id> windows=<count> t0=<ms> t1=<ms> t2=<ms> latency=<ms> success=<0|1>`
 - 使用 `scripts/measure-performance.sh` 或手动收集
 - 计算 P95 latency / t0 / t1 / t2
+- **AX 失败率统计**：统计 `success=0` 的比例（失败次数 / 总次数 × 100%）
+  - 按 App × N 分组统计
+  - 若某 App × N 组合失败率 >5%，记录到 F1_05_兼容性回归报告.md 并触发风险 7.1 评估
+  - 失败率 >5% 时按 F1_01 FR-F1-006 风险提示重新评估 AX 失败策略
 - 记录到 F1_04_性能基线报告.md
 
 ### Task 6.8: 设定 NFR 5.1 性能门槛

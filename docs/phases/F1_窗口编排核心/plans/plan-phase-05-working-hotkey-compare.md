@@ -83,16 +83,27 @@
   ```
 - 运行：`swift test --filter TidyOrchestratorTests` → 预期通过
 
-### Task 5.3: 实现 returnToSelectingFromWorking（绿）
+### Task 5.3: 记录放大窗口 ID（绿）
 
-- 新增 `returnToSelectingFromWorking()`：
+- 文件：`Sources/TidyCore/Orchestration/TidyOrchestrator.swift`
+- 新增字段 `private var maximizedWindowID: CGWindowID?`
+- 在 maximizeAfterActivate 中设置：`maximizedWindowID = window.id`
+- 在 exitToIdlePreservingLayout / deactivate / handleAppTerminated(working 分支) 中重置：`maximizedWindowID = nil`
+- 运行：`swift test` → 预期通过
+
+### Task 5.4: 实现 returnToSelectingFromWorking（绿）
+
+- 新增 `returnToSelectingFromWorking()`（依赖 Task 5.3 的 maximizedWindowID 字段）：
   ```swift
   private func returnToSelectingFromWorking() {
-      // 取消放大：找到当前放大的窗口（arrangedWindows 中不在原 layoutCell.frame 的窗口）
-      // 或记录 maximizedWindowID 字段（Task 5.4）
-      guard let maximizedWindow = findMaximizedWindow() else { return }
-      guard let originalCell = layoutCells.first(where: { $0.windowIndex == arrangedWindows.firstIndex(where: { $0.id == maximizedWindow.id }) }) else { return }
+      // 取消放大：使用 maximizedWindowID 找到放大窗口
+      guard let wid = maximizedWindowID,
+            let windowIndex = arrangedWindows.firstIndex(where: { $0.id == wid }),
+            let originalCell = layoutCells.first(where: { $0.windowIndex == windowIndex })
+      else { return }
+      let maximizedWindow = arrangedWindows[windowIndex]
       _ = windowManipulator.setFrame(originalCell.frame, for: maximizedWindow)
+      maximizedWindowID = nil
 
       overlay?.showOverlay(cells: layoutCells, on: targetScreenFrame)
       state = .selecting
@@ -100,15 +111,6 @@
       startKeyEventTap()
   }
   ```
-- 运行：`swift test` → 预期通过
-
-### Task 5.4: 记录放大窗口 ID（绿）
-
-- 文件：`Sources/TidyCore/Orchestration/TidyOrchestrator.swift`
-- 新增字段 `private var maximizedWindowID: CGWindowID?`
-- 在 maximizeAfterActivate 中设置：`maximizedWindowID = window.id`
-- 在 returnToSelectingFromWorking 中使用：`guard let wid = maximizedWindowID, let window = arrangedWindows.first(where: { $0.id == wid }) else { return }`
-- 在 exitToIdlePreservingLayout / deactivate 中重置：`maximizedWindowID = nil`
 - 运行：`swift test` → 预期通过
 
 ### Task 5.5: 集合不同分支单元测试（红）
@@ -124,9 +126,49 @@
     - 新 positionSnapshot 包含 [w1, w2, w4]
 - 运行：预期失败
 
-### Task 5.6: 实现 triggerRearrange（绿）
+### Task 5.6: 实现 triggerRearrange + 重构 acceptArranging（绿）
 
-- 新增 `triggerRearrange(with newWindows:)`：
+- **重构 activate() 为两个方法**：
+  - `activate()`：公共入口，负责 idle 状态校验 + 枚举窗口 + 10+ 截断 + 调用 acceptArranging
+  - `acceptArranging(with windows:)`：arranging 核心逻辑，从 positionSnapshot 开始到 state = .selecting
+- **职责划分**：
+  ```swift
+  public func activate() {
+      guard state == .idle else { return }
+      let t0 = DispatchTime.now()
+      state = .arranging
+
+      let focusedWindow = windowManipulator.focusedWindow(forPID: frontmostPID)
+      let targetScreen = displayCoordinator.targetScreen(for: focusedWindow, provider: screenProvider)
+      targetScreenFrame = targetScreen.frame
+
+      let windows = windowEnumerator.enumerateVisibleWindows(forPID: frontmostPID)
+      let truncated = Array(windows.prefix(9))
+      let wasTruncated = windows.count > 9
+
+      guard !truncated.isEmpty else {
+          state = .idle
+          logPerformance(t0: t0, t1: nil, t2: nil, windowCount: 0, success: false)
+          return
+      }
+
+      acceptArranging(with: truncated, t0: t0, targetScreen: targetScreen, wasTruncated: wasTruncated)
+  }
+
+  private func acceptArranging(with windows: [WindowInfo], t0: DispatchTime, targetScreen: ScreenInfo, wasTruncated: Bool) {
+      // 以下逻辑从原 activate() 移入：
+      // 1. positionSnapshot = windowManipulator.snapshotWindows(windows)
+      // 2. arrangedWindows = windows
+      // 3. cells = layoutCalculator.calculateLayout(...)
+      // 4. applyLayoutStrict(...)
+      // 5. overlay.showOverlay(...)
+      // 6. state = .selecting + startSelectTimeout + startKeyEventTap
+      // 7. if wasTruncated { overlay.showError("仅排列前 9 个窗口", 2.0) }
+      // 8. notificationObserver?.startObserving(...)
+      // 9. logPerformance(...)
+  }
+  ```
+- **triggerRearrange 实现**：
   ```swift
   private func triggerRearrange(with newWindows: [WindowInfo]) {
       // 清空旧 Session 快照
@@ -135,14 +177,22 @@
       layoutCells = []
       maximizedWindowID = nil
       overlay?.hideOverlay()
+      notificationObserver?.stopObserving()
 
       // 走完整 arranging → selecting 流程
-      // 复用 activate() 的核心逻辑（重构为 acceptArranging(with:))
-      acceptArranging(with: newWindows)
+      let truncated = Array(newWindows.prefix(9))
+      guard !truncated.isEmpty else {
+          state = .idle
+          return
+      }
+      state = .arranging
+      let t0 = DispatchTime.now()
+      let focusedWindow = windowManipulator.focusedWindow(forPID: frontmostPID)
+      let targetScreen = displayCoordinator.targetScreen(for: focusedWindow, provider: screenProvider)
+      targetScreenFrame = targetScreen.frame
+      acceptArranging(with: truncated, t0: t0, targetScreen: targetScreen, wasTruncated: newWindows.count > 9)
   }
   ```
-- 重构 activate()：将 arranging 核心逻辑（从 positionSnapshot 开始到 state = .selecting）抽取为 `acceptArranging(with windows:)`
-- activate() 只负责枚举 + 调用 acceptArranging
 - 运行：`swift test` → 预期通过
 
 ### Task 5.7: 边界 - 空窗口集单元测试

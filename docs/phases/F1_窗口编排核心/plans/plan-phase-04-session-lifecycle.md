@@ -62,9 +62,16 @@
 
 ### Task 4.2: SystemNotificationObserver 实现（绿）
 
-- 文件：`Sources/TidyCore/Orchestration/SystemNotificationObserver.swift`
-- 实现 `SystemNotificationObserving`：
+- **架构决策（方案 C）**：协议定义在 TidyCore（不依赖 AppKit），实现在 TidyApp（可访问 NSWorkspace）
+  - TidyCore 定义 `SystemNotificationObserving` 协议（Task 4.1）
+  - TidyApp 实现 `SystemNotificationObserver` 类，访问 `NSWorkspace.shared.notificationCenter`
+  - TidyApp 在初始化时注入实例到 TidyOrchestrator
+- 文件：`Sources/TidyApp/SystemNotificationObserver.swift`（新建）
+- 实现：
   ```swift
+  import AppKit
+  import TidyCore
+
   public final class SystemNotificationObserver: SystemNotificationObserving {
       private var appActivatedObserver: NSObjectProtocol?
       private var spaceChangedObserver: NSObjectProtocol?
@@ -75,27 +82,50 @@
 
       public init() {}
 
-      public func startObserving(...) {
+      public func startObserving(
+          onAppActivated: @escaping (pid_t) -> Void,
+          onSpaceChanged: @escaping () -> Void,
+          onAppTerminated: @escaping (pid_t) -> Void
+      ) {
+          self.onAppActivated = onAppActivated
+          self.onSpaceChanged = onSpaceChanged
+          self.onAppTerminated = onAppTerminated
+
           appActivatedObserver = NSWorkspace.shared.notificationCenter.addObserver(
-              forName: NSWorkspace.didActivateApplicationNotification, ...
-          ) { note in
+              forName: NSWorkspace.didActivateApplicationNotification,
+              object: nil,
+              queue: .main
+          ) { [weak self] note in
               guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
-              self.onAppActivated?(app.processIdentifier)
+              self?.onAppActivated?(app.processIdentifier)
           }
-          // spaceChanged: activeSpaceDidChangeNotification
-          // appTerminated: didTerminateApplicationNotification
+          spaceChangedObserver = NSWorkspace.shared.notificationCenter.addObserver(
+              forName: NSWorkspace.activeSpaceDidChangeNotification,
+              object: nil,
+              queue: .main
+          ) { [weak self] _ in
+              self?.onSpaceChanged?()
+          }
+          appTerminatedObserver = NSWorkspace.shared.notificationCenter.addObserver(
+              forName: NSWorkspace.didTerminateApplicationNotification,
+              object: nil,
+              queue: .main
+          ) { [weak self] note in
+              guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+              self?.onAppTerminated?(app.processIdentifier)
+          }
       }
 
       public func stopObserving() {
-          // 移除所有 observer
+          if let obs = appActivatedObserver { NSWorkspace.shared.notificationCenter.removeObserver(obs) }
+          if let obs = spaceChangedObserver { NSWorkspace.shared.notificationCenter.removeObserver(obs) }
+          if let obs = appTerminatedObserver { NSWorkspace.shared.notificationCenter.removeObserver(obs) }
+          appActivatedObserver = nil
+          spaceChangedObserver = nil
+          appTerminatedObserver = nil
       }
   }
   ```
-- 注意：TidyCore 不依赖 AppKit，但 NSWorkspace 通过 AppKit 暴露。需要：
-  - 方案 A：TidyCore 引入 AppKit（违反 INV-001）
-  - 方案 B：SystemNotificationObserver 放在 TidyUI 或 TidyApp 层
-  - **方案 C（推荐）**：协议在 TidyCore，实现在 TidyApp（NSWorkspace 访问层）
-- 采用方案 C：SystemNotificationObserver 实现移到 `Sources/TidyApp/SystemNotificationObserver.swift`
 - 运行：`swift build` → 预期编译通过
 
 ### Task 4.3: TidyOrchestrator 注入 observer（绿）
@@ -187,8 +217,10 @@
       guard pid == frontmostPID else { return }
       switch state {
       case .arranging:
-          // 按 AX 失败处理（不回滚 + 提示 + idle）
-          handleArrangeFailure(window: ..., result: .failed(...))
+          // 目标 App 退出时无法继续排列，提示并进入 idle（不回滚，新基线语义）
+          // 不调用 handleArrangeFailure（该方法是 arranging 阶段单窗口失败的处理，
+          // App 退出是整体失败，使用通用提示）
+          overlay?.showError(text: "目标 App 已退出", duration: 2.0)
           exitToIdlePreservingLayout()
       case .selecting:
           exitToIdlePreservingLayout()
@@ -204,12 +236,7 @@
       notificationObserver?.stopObserving()
   }
   ```
-- 注意：arranging 阶段 App 退出时，handleArrangeFailure 需要 window 参数，但 arranging 中失败窗口可能未确定。简化为提示"目标 App 已退出"：
-  ```swift
-  case .arranging:
-      overlay?.showError(text: "目标 App 已退出", duration: 2.0)
-      exitToIdlePreservingLayout()
-  ```
+- **设计说明**：arranging 阶段 App 退出时，不调用 `handleArrangeFailure(window:result:)`（该方法针对单窗口 setFrame 失败，需要 window 参数）。App 退出是整体失败，使用通用提示"目标 App 已退出"，符合 FR-F1-004 矩阵"按 AX 失败处理"的语义（不回滚 + 提示 + idle）。
 - 运行：`swift test` → 预期通过
 
 ### Task 4.11: selecting 超时保留排列单元测试（红）

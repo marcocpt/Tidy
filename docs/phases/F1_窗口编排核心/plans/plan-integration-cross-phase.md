@@ -16,7 +16,7 @@ Phase 2: ax-failure-policy (FR-F1-006 + 错误提示)
     ↓
 Phase 3: selection-timing (FR-F1-003)
     ↓
-Phase 4: session-lifecycle (FR-F1-004)
+Phase 4: session-lifecycle (FR-F1-004) [任务最重：14 个 Task，涉及新模块 + 4 类通知]
     ↓
 Phase 5: working-hotkey-compare (FR-F1-005)
     ↓
@@ -24,6 +24,23 @@ Phase 6: tier-a-compatibility (AC-F1-008 + NFR 5.1)
 ```
 
 依赖关系是线性的：每个 Phase 以前序 Phase 的产物为输入。Phase 6 依赖所有前序 Phase。
+
+**Phase 4 任务密度说明**：Phase 4 包含 14 个 Task（全 Phase 最多），涉及新模块（SystemNotificationObserver）+ 4 类系统通知处理 + 超时/Esc 语义重构。未拆分为 Phase 4a/4b 的原因：拆分会增加 Phase 数至 7（仍为复杂档），且 4 类通知处理共享 SystemNotificationObserver 模块与 exitToIdlePreservingLayout 方法，拆分会引入重复代码。保留单 Phase 通过 5 个细粒度提交管理复杂度。
+
+### 2.1 AC 跨 Phase 覆盖矩阵
+
+| AC | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Phase 5 | Phase 6 | 完整验证 |
+|----|---------|---------|---------|---------|---------|---------|---------|
+| AC-F1-001 核心闭环 | 部分（布局） | — | 部分（选择时序） | 部分（Session） | 部分（working 热键） | **完整** | Phase 6 |
+| AC-F1-002 布局规则 | **完整** | — | — | — | — | 验证 | Phase 1 |
+| AC-F1-003 边界窗口数 | **完整** | 截断提示 | — | — | — | 验证 | Phase 1+2 |
+| AC-F1-004 selecting 生命周期 | — | — | — | **完整** | — | 验证 | Phase 4 |
+| AC-F1-005 working 生命周期 | — | — | — | 部分（切 App/Space） | 部分（热键） | **完整** | Phase 6 |
+| AC-F1-006 异常恢复 | — | **完整**（arranging） | **完整**（激活失败） | — | — | 验证 | Phase 2+3 |
+| AC-F1-007 目标 App 退出 | — | — | — | **完整** | — | 验证 | Phase 4 |
+| AC-F1-008 Tier A 兼容性 | — | — | — | — | — | **完整** | Phase 6 |
+
+**AC-F1-001 核心闭环跨 Phase 说明**：核心闭环（arranging → selecting → working → 回 selecting）需要布局（Phase 1）+ 选择时序（Phase 3）+ Session 生命周期（Phase 4）+ working 热键集合比较（Phase 5）全部完成才能端到端验证。Phase 3 和 Phase 5 的单元测试覆盖部分状态转换，Phase 6 手动测试 + XCUITest 完整验证端到端闭环。
 
 ## 3. 集成点
 
@@ -144,9 +161,10 @@ selecting → App 退出 → idle（保留排列）
 
 ### 6.1 候选分支
 
-- 基于 develop 最新提交创建 `feature/F1-window-orchestration` 候选分支
+- 基于 develop 最新提交创建候选分支，命名遵循 `dd-git-branch` 规范：`feature/phase-F1-window-orchestration`
 - Phase 6 完成后，所有 Phase 提交已合并到 develop
 - 候选 SHA = develop 最新 SHA
+- 候选分支仅用于 Final Candidate CI 验证，不直接合并到 main/master
 
 ### 6.2 完整 CI 验证
 

@@ -54,10 +54,22 @@
 ### Task 2.3: OverlayPanel 实现 showError（绿）
 
 - 文件：`Sources/TidyUI/Overlay/OverlayPanel.swift`
-- 实现 `showError(text:duration:)`：
-  - 隐藏标签视图（若可见）
-  - 显示错误文本视图（中心偏上动态约束）
-  - `DispatchQueue.main.asyncAfter(deadline: .now() + duration)` 后自动隐藏
+- **当前状态**：OverlayPanel 只有 OverlayLabelView（字母标签视图），无错误文本视图。本 Task 需新增错误提示基础设施。
+- **实现步骤**：
+  1. 新增 `OverlayErrorView` 私有类（NSTextField 子类或 NSView 包裹 NSTextField）：
+     - 半透明背景（与 OverlayLabelView 一致的视觉风格）
+     - 居中显示错误文本（窗口标题 + 错误码）
+     - 字体大小适配可读性（建议 14-16pt）
+  2. OverlayPanel 新增 `private var errorView: OverlayErrorView?` 字段
+  3. 实现 `showError(text:duration:)`：
+     - 隐藏标签视图（若可见）：`clearLabels()`
+     - 创建或复用 errorView，设置文本
+     - errorView.frame 居中偏上动态约束（panel.contentView.bounds 中心，y 偏上 1/4）
+     - 添加为 panel.contentView 子视图
+     - `panel.orderFrontRegardless()` 显示
+     - `DispatchQueue.main.asyncAfter(deadline: .now() + duration)` 后调用 `hideError()`
+  4. 新增 `private func hideError()`：移除 errorView + `panel.orderOut(nil)`
+- **与 showOverlay 的互斥**：showError 调用 clearLabels 隐藏标签；showOverlay 调用时应先 hideError
 - 运行：`swift build` → 预期编译通过
 
 ### Task 2.4: 任何失败即终止单元测试（红）
