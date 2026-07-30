@@ -2,80 +2,6 @@ import ApplicationServices
 import Foundation
 import os.log
 
-// MARK: - 覆盖层显示协议（跨层抽象）
-
-/// 覆盖层显示协议，解耦 TidyCore 与 TidyUI（INV-001 / INV-008）。
-///
-/// TidyCore 定义此协议，TidyUI 的 OverlayPanel 实现它，
-/// TidyApp 在初始化时注入。协议使用 LayoutCell（已在 TidyCore 中），
-/// 避免引入 TidyUI 类型。
-public protocol OverlayShowing: AnyObject {
-    /// 显示覆盖层标签
-    /// - Parameters:
-    ///   - cells: 布局单元格列表（含字母标签与 frame）
-    ///   - screenFrame: 目标屏幕可见区域
-    func showOverlay(cells: [LayoutCell], on screenFrame: CGRect)
-    /// 隐藏覆盖层
-    func hideOverlay()
-}
-
-// MARK: - 编排状态
-
-/// Tidy 编排状态机
-///
-/// 根据架构契约 INV-006：状态机转换必须单向且可逆。
-/// idle → arranging → selecting → working，working/selecting → idle。
-/// 任何非法转换应被视为错误。
-public enum TidyState: Equatable {
-    /// 空闲——未编排任何窗口
-    case idle
-    /// 编排中——正在枚举、布局、排列窗口
-    case arranging
-    /// 选择中——窗口已排列，等待用户按字母键选择
-    case selecting
-    /// 工作中——已选中一个窗口并最大化
-    case working
-}
-
-// MARK: - 编排协议
-
-/// 编排协调协议
-///
-/// 职责：协调 hotkey → enumerate → layout → arrange → overlay → select → maximize → restore 完整流程。
-/// 根据架构契约 INV-008：跨组件通信通过协议。
-/// 根据架构契约 INV-006：状态机转换必须单向且可逆。
-/// 根据架构契约 INV-009：快照与还原必须成对且原子。
-/// 根据架构契约 INV-010：权限缺失时不得执行窗口操作。
-public protocol TidyOrchestrating {
-    /// 触发编排流程（枚举窗口 → 计算布局 → 排列窗口 → 进入选择阶段）
-    ///
-    /// 仅在 .idle 状态下可调用，其他状态下忽略。
-    /// 根据架构契约 INV-010：调用前应确认辅助功能权限已授予。
-    func activate()
-
-    /// 按字母标签选择窗口并最大化
-    ///
-    /// 仅在 .selecting 状态下可调用。
-    /// - Parameter label: 字母标签（a-z）
-    func selectWindow(label: Character)
-
-    /// 还原所有窗口并回到空闲状态
-    ///
-    /// 在 .selecting 或 .working 状态下可调用。
-    /// 根据架构契约 INV-009：还原必须使用编排前的快照。
-    func deactivate()
-
-    /// 热键 toggle：idle 时 activate，selecting/working 时 deactivate
-    ///
-    /// 对应设计文档 4.2 节状态转换：
-    /// - idle + 热键 → arranging
-    /// - selecting + 热键 → restoring
-    func toggle()
-
-    /// 当前编排状态
-    var state: TidyState { get }
-}
-
 // MARK: - 编排控制器
 
 /// Tidy 编排控制器
@@ -138,6 +64,12 @@ public final class TidyOrchestrator: TidyOrchestrating {
         subsystem: "com.tidy.windowmanagement",
         category: .pointsOfInterest
     )
+
+    /// 超时计时器（F1：selecting 阶段 30 秒无输入自动还原）
+    private var selectTimeoutTimer: Timer?
+
+    /// 超时时间（默认 30 秒）
+    private let selectTimeoutInterval: TimeInterval = 30.0
 
     /// 创建编排控制器
     /// - Parameters:
@@ -205,15 +137,29 @@ public final class TidyOrchestrator: TidyOrchestrating {
             windowCount: windows.count,
             screen: targetScreen
         )
-        layoutCells = cells
 
-        applyLayout(cells, windows: windows)
+        // F1-001: AX 失败时原位置标签降级
+        let (appliedCells, failedCount) = applyLayoutWithFallback(cells, windows: windows)
         let t1 = DispatchTime.now()
 
-        // 显示覆盖层（对应设计文档 3. 数据流第 254 行）
-        overlay?.showOverlay(cells: cells, on: targetScreenFrame)
+        // 失败超过半数时终止编排
+        if failedCount > windows.count / 2 {
+            os_log("tidy.arrange ABORT failedCount=%d total=%d", log: perfLog, type: .error, failedCount, windows.count)
+            _ = windowManipulator.restoreWindows(from: positionSnapshot, windows: arrangedWindows)
+            positionSnapshot = [:]
+            arrangedWindows = []
+            state = .idle
+            logPerformance(t0: t0, t1: t1, t2: nil, windowCount: windows.count, success: false)
+            return
+        }
+
+        layoutCells = appliedCells
+
+        // 显示覆盖层（使用包含降级标签的 cells）
+        overlay?.showOverlay(cells: appliedCells, on: targetScreenFrame)
 
         state = .selecting
+        startSelectTimeout()
         startKeyEventTap()
         let t2 = DispatchTime.now()
 
@@ -244,6 +190,16 @@ public final class TidyOrchestrator: TidyOrchestrating {
             provider: screenProvider
         )
 
+        // F1: 先停止 EventTap 释放事件流，再做 AX 激活
+        // 否则 EventTap 持有事件流会导致 AX API 调用失败 (-25205 kAXErrorCannotComplete)
+        stopSelectTimeout()
+        eventTapManager.stopTap()
+
+        // F1: 先激活窗口（升起 + main + focused），让窗口前置
+        // 再 setFrame 调整大小，避免 setFrame 后窗口 z-order 未改变导致遮挡
+        let activateResult = windowManipulator.activateWindow(window)
+        logActivateResult(label: label, window: window, result: activateResult)
+
         let maximizedFrame = screen.frame.insetBy(dx: 4, dy: 4)
         let result = windowManipulator.setFrame(maximizedFrame, for: window)
         logSelectResult(label: label, window: window, result: result)
@@ -252,7 +208,28 @@ public final class TidyOrchestrator: TidyOrchestrating {
         overlay?.hideOverlay()
 
         state = .working
-        eventTapManager.stopTap()
+    }
+
+    /// 记录 activateWindow 结果（F1 诊断日志）
+    private func logActivateResult(
+        label: Character,
+        window: WindowInfo,
+        result: WindowOperationResult
+    ) {
+        switch result {
+        case .success:
+            os_log(
+                "tidy.activate ok wid=%llu label=%{public}@",
+                log: perfLog, type: .default,
+                window.id, String(label)
+            )
+        case .failed(_, let reason):
+            os_log(
+                "tidy.activate FAIL wid=%llu reason=%{public}@",
+                log: perfLog, type: .default,
+                window.id, reason
+            )
+        }
     }
 
     /// 记录 selectWindow 结果（临时诊断日志，P0 探针阶段）
@@ -288,7 +265,9 @@ public final class TidyOrchestrator: TidyOrchestrating {
     public func deactivate() {
         guard state == .selecting || state == .working else { return }
 
-        windowManipulator.restoreWindows(
+        stopSelectTimeout()
+
+        _ = windowManipulator.restoreWindows(
             from: positionSnapshot,
             windows: arrangedWindows
         )
@@ -324,13 +303,70 @@ public final class TidyOrchestrator: TidyOrchestrating {
 
     // MARK: - 私有方法
 
-    /// 将布局单元格应用到窗口
-    private func applyLayout(_ cells: [LayoutCell], windows: [WindowInfo]) {
+    /// 将布局单元格应用到窗口，返回成功应用的 cells 和失败计数
+    ///
+    /// F1-001: AX 失败时原位置标签降级
+    /// - 失败窗口保留原位置，仍分配标签
+    /// - 返回的 cells 中失败窗口使用原 frame 而非布局 frame
+    private func applyLayoutWithFallback(
+        _ cells: [LayoutCell],
+        windows: [WindowInfo]
+    ) -> (appliedCells: [LayoutCell], failedCount: Int) {
+        var appliedCells: [LayoutCell] = []
+        var failedCount = 0
+
         for cell in cells {
             guard cell.windowIndex < windows.count else { break }
             let window = windows[cell.windowIndex]
-            windowManipulator.setFrame(cell.frame, for: window)
+            let result = windowManipulator.setFrame(cell.frame, for: window)
+
+            if result == .success {
+                appliedCells.append(cell)
+            } else {
+                // AX 失败：保留原位置，使用原 frame 显示标签
+                failedCount += 1
+                let originalFrame = positionSnapshot[window.id] ?? cell.frame
+                appliedCells.append(LayoutCell(
+                    label: cell.label,
+                    frame: originalFrame,
+                    windowIndex: cell.windowIndex
+                ))
+                os_log(
+                    "tidy.arrange FAIL label=%{public}@ wid=%llu",
+                    log: perfLog,
+                    type: .default,
+                    String(cell.label),
+                    window.id
+                )
+            }
         }
+
+        return (appliedCells, failedCount)
+    }
+
+    /// 启动超时计时器（F1-003）
+    private func startSelectTimeout() {
+        selectTimeoutTimer?.invalidate()
+        selectTimeoutTimer = Timer.scheduledTimer(
+            withTimeInterval: selectTimeoutInterval,
+            repeats: false
+        ) { [weak self] _ in
+            guard let self = self, self.state == .selecting else { return }
+            os_log("tidy.timeout selecting auto-restore", log: self.perfLog, type: .default)
+            self.deactivate()
+        }
+    }
+
+    /// 重置超时计时器（用户有效输入时调用）
+    private func resetSelectTimeout() {
+        guard state == .selecting else { return }
+        startSelectTimeout()
+    }
+
+    /// 停止超时计时器
+    private func stopSelectTimeout() {
+        selectTimeoutTimer?.invalidate()
+        selectTimeoutTimer = nil
     }
 
     /// 启动键盘事件拦截
@@ -373,6 +409,7 @@ public final class TidyOrchestrator: TidyOrchestrating {
             type: .default,
             String(label)
         )
+        resetSelectTimeout()
         selectWindow(label: label)
         return true
     }

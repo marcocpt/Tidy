@@ -1,5 +1,6 @@
 import ApplicationServices
 import Foundation
+import os.log
 
 /// 窗口操作结果
 public enum WindowOperationResult: Sendable, Equatable {
@@ -19,6 +20,11 @@ public protocol WindowManipulating {
     func snapshotWindows(_ windows: [WindowInfo]) -> [CGWindowID: CGRect]
     /// 还原窗口到快照位置
     func restoreWindows(from snapshot: [CGWindowID: CGRect], windows: [WindowInfo]) -> [WindowOperationResult]
+    /// 激活指定窗口为 App 主窗口并聚焦（F1）
+    ///
+    /// 通过 AX 设置 kAXMainWindowAttribute 与 kAXFocusedWindowAttribute，
+    /// 让窗口在所属 App 内成为主窗口并获得焦点。App 本身的前台激活由 App 层负责。
+    func activateWindow(_ window: WindowInfo) -> WindowOperationResult
 }
 
 /// 窗口操作器
@@ -123,5 +129,169 @@ public final class WindowManipulator: WindowManipulating {
             }
             return setFrame(originalFrame, for: window)
         }
+    }
+
+    public func activateWindow(_ window: WindowInfo) -> WindowOperationResult {
+        // F1: 通过 AX 组合调用激活窗口与所属 App
+        let axApp = AXUIElementCreateApplication(window.ownerPID)
+        let results = performAXActivationCalls(window: window, axApp: axApp)
+        logAXActivationResults(window: window, results: results)
+
+        // F1: AX 调用可能返回 success 但不改变 z-order（Finder 等部分 App 行为）
+        // 用 CGEvent 模拟点击窗口标题栏中心，强制系统前置窗口
+        simulateClickOnWindowTitlebar(window: window)
+
+        let anySuccess = results.main == .success
+            || results.focused == .success
+            || results.raise == .success
+            || results.frontmost == .success
+            || results.focusWin == .success
+
+        guard anySuccess else {
+            let reason = "AX 激活全部失败: main=\(results.main.rawValue)" +
+                " focused=\(results.focused.rawValue)" +
+                " raise=\(results.raise.rawValue)" +
+                " frontmost=\(results.frontmost.rawValue)" +
+                " focusWin=\(results.focusWin.rawValue)"
+            return .failed(windowID: window.id, reason: reason)
+        }
+
+        return .success
+    }
+
+    /// 用 CGEvent 模拟点击窗口中心，强制系统前置窗口
+    ///
+    /// AX 设置 kAXMainWindowAttribute 等可能不改变 z-order，
+    /// CGEvent 模拟点击会让系统真正处理窗口前置。
+    /// 点击位置：窗口中心区域（通过 AX 实时查询窗口当前位置）。
+    ///
+    /// 坐标系注意：
+    /// - CGRect/NSRect 屏幕坐标系：左下角原点，Y 向上增长
+    /// - CGEvent 鼠标坐标系：左上角原点，Y 向下增长
+    /// 需要转换 Y 轴：CGEvent_Y = screenHeight - NSRect_Y
+    private func simulateClickOnWindowTitlebar(window: WindowInfo) {
+        // 通过 AX 实时查询窗口当前位置和大小（window.frame 可能是过时的枚举快照）
+        guard let currentFrame = queryWindowFrame(window.axRef) else {
+            let log = OSLog(subsystem: "com.tidy.windowmanagement", category: .pointsOfInterest)
+            os_log("tidy.click FAIL wid=%llu ax-query-frame-failed",
+                   log: log, type: .default, window.id)
+            return
+        }
+
+        // 获取主屏高度用于 Y 轴转换
+        let mainDisplayID = CGMainDisplayID()
+        let screenHeight = CGDisplayPixelsHigh(mainDisplayID)
+
+        // 点击窗口中心（CGEvent 坐标系：左上角原点）
+        let clickCenter = CGPoint(
+            x: currentFrame.midX,
+            y: CGFloat(screenHeight) - currentFrame.midY
+        )
+
+        guard let mouseDown = CGEvent(
+            mouseEventSource: nil,
+            mouseType: .leftMouseDown,
+            mouseCursorPosition: clickCenter,
+            mouseButton: .left
+        ),
+            let mouseUp = CGEvent(
+                mouseEventSource: nil,
+                mouseType: .leftMouseUp,
+                mouseCursorPosition: clickCenter,
+                mouseButton: .left
+            ) else {
+            let log = OSLog(subsystem: "com.tidy.windowmanagement", category: .pointsOfInterest)
+            os_log("tidy.click FAIL wid=%llu cgEvent-create-failed",
+                   log: log, type: .default, window.id)
+            return
+        }
+
+        // 用 CGEvent.post(tap:) 发布事件到系统事件流
+        mouseDown.post(tap: CGEventTapLocation.cgSessionEventTap)
+        mouseUp.post(tap: CGEventTapLocation.cgSessionEventTap)
+
+        let log = OSLog(subsystem: "com.tidy.windowmanagement", category: .pointsOfInterest)
+        os_log("tidy.click wid=%llu x=%g y=%g screenH=%d frameMidY=%g pid=%d",
+               log: log, type: .default,
+               window.id,
+               clickCenter.x, clickCenter.y,
+               screenHeight, currentFrame.midY,
+               window.ownerPID)
+    }
+
+    /// 通过 AX 查询窗口当前实际位置和大小
+    private func queryWindowFrame(_ axRef: AXUIElement) -> CGRect? {
+        var position: CGPoint = .zero
+        var size: CGSize = .zero
+
+        var posValue: AnyObject?
+        if AXUIElementCopyAttributeValue(axRef, kAXPositionAttribute as CFString, &posValue) == .success,
+           let axPos = posValue {
+            // swiftlint:disable:next force_cast
+            AXValueGetValue(axPos as! AXValue, .cgPoint, &position)
+        } else {
+            return nil
+        }
+
+        var sizeValue: AnyObject?
+        if AXUIElementCopyAttributeValue(axRef, kAXSizeAttribute as CFString, &sizeValue) == .success,
+           let axSize = sizeValue {
+            // swiftlint:disable:next force_cast
+            AXValueGetValue(axSize as! AXValue, .cgSize, &size)
+        } else {
+            return nil
+        }
+
+        return CGRect(origin: position, size: size)
+    }
+
+    /// AX 激活调用结果
+    private struct AXActivationResults {
+        let main: AXError
+        let focused: AXError
+        let raise: AXError
+        let frontmost: AXError
+        let focusWin: AXError
+    }
+
+    /// 执行 5 个 AX 激活调用，返回各调用结果
+    private func performAXActivationCalls(
+        window: WindowInfo,
+        axApp: AXUIElement
+    ) -> AXActivationResults {
+        let main = AXUIElementSetAttributeValue(
+            axApp, "AXMainWindow" as CFString, window.axRef
+        )
+        let focused = AXUIElementSetAttributeValue(
+            axApp, "AXFocusedWindow" as CFString, window.axRef
+        )
+        let raise = AXUIElementSetAttributeValue(
+            window.axRef, "AXRaise" as CFString, kCFBooleanTrue
+        )
+        let frontmost = AXUIElementSetAttributeValue(
+            axApp, "AXFrontmost" as CFString, kCFBooleanTrue
+        )
+        let focusWin = AXUIElementSetAttributeValue(
+            window.axRef, "AXFocused" as CFString, kCFBooleanTrue
+        )
+        return AXActivationResults(
+            main: main, focused: focused, raise: raise,
+            frontmost: frontmost, focusWin: focusWin
+        )
+    }
+
+    /// 输出 AX 激活调用详细日志（诊断哪个 API 真正生效）
+    private func logAXActivationResults(
+        window: WindowInfo,
+        results: AXActivationResults
+    ) {
+        let log = OSLog(subsystem: "com.tidy.windowmanagement", category: .pointsOfInterest)
+        os_log(
+            "tidy.ax-activate wid=%llu main=%d focused=%d raise=%d frontmost=%d focusWin=%d",
+            log: log, type: .default,
+            window.id,
+            results.main.rawValue, results.focused.rawValue, results.raise.rawValue,
+            results.frontmost.rawValue, results.focusWin.rawValue
+        )
     }
 }
